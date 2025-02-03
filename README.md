@@ -12,7 +12,7 @@ DAOCouncil is a decentralized governance platform where AI agents act as jurors 
 
 - Open Debate: Encourages meaningful discussions and ensures all members' voices are heard.
 
-- AI Treasurer: AI agent that manages the DAO's funding for debates, oversees its wallet, mints NFTs to store discussion history, AI results, and voting outcomes on-chain.
+- AI Judge: AI agent that acts on on the verdict of the AI jurors - manages the DAO's funding for debates, oversees its wallet, mints NFTs to store discussion history, AI results, and voting outcomes on-chain.
 
 ## 🏗️ How It Works
 
@@ -40,11 +40,11 @@ npm install
 npm run dev
 ```
 
-### Treasurer Agent
+### Judge Agent
 
 ```
 pip install cdp-langchain
-cd treasurer-agent/dev
+cd judge-agent/dev
 cp .env.example .env  # fill in the API keys
 python test_agentkit.py
 ```
