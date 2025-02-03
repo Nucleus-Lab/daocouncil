@@ -30,6 +30,25 @@ DAOCouncil is a decentralized governance platform where AI agents act as jurors 
 
 Traditional DAO voting mechanisms often favor large token holders, undermining fair governance. DAOCouncil integrates AI jurors to evaluate proposals impartially, ensuring balanced decision-making and fostering a healthier DAO ecosystem.
 
+## Installation
+
+### Frontend
+
+```
+cd frontend
+npm install
+npm run dev
+```
+
+### Treasurer Agent
+
+```
+pip install cdp-langchain
+cd treasurer-agent/dev
+cp .env.example .env  # fill in the API keys
+python test_agentkit.py
+```
+
 ## 🛠️ Tech Stack
 
 Frontend: React
