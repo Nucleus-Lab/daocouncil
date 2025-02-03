@@ -1,0 +1,8 @@
+{
+  "function": "deploy_nft_contract",
+  "params": {
+    "debate_id": "test_debate_001",
+    "contract_name": "Debate NFT test_debate_001"
+  },
+  "response": "The NFT contract for 'Debate NFT test_debate_001' with symbol 'DEBATE' has been successfully deployed.\n\n- **Contract Address:** [0x1930DE4012ad7571Ec078432fd5b8c02E33d158a](https://sepolia.basescan.org/address/0x1930DE4012ad7571Ec078432fd5b8c02E33d158a)\n- **Transaction Hash:** [0xafb12fd985d3988b06fb7869b6c054dadf178041e92b1896b0317542f1f2e724](https://sepolia.basescan.org/tx/0xafb12fd985d3988b06fb7869b6c054dadf178041e92b1896b0317542f1f2e724)"
+}

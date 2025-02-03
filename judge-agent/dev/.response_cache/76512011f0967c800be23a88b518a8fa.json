@@ -1,0 +1,7 @@
+{
+  "function": "get_wallet_address",
+  "params": {
+    "debate_id": "test_debate_001"
+  },
+  "response": "Your wallet address is: `0x10Add10f4bD0479239Ab88D50044cf74c580DE6E` and it is on the `base-sepolia` network."
+}

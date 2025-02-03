@@ -1,0 +1,8 @@
+{
+  "function": "check_funding_status",
+  "params": {
+    "debate_id": "test_debate_001",
+    "funding_amount_eth": 3e-05
+  },
+  "response": "[SUFFICIENT] The ETH balance in your wallet is 0.000096925733758228 ETH."
+}

@@ -1,0 +1,10 @@
+{
+  "function": "mint_nft",
+  "params": {
+    "debate_id": "test_debate_001",
+    "contract_address": "0x1930DE4012ad7571Ec078432fd5b8c02E33d158a",
+    "wallet_address": "Your wallet address is: `0x10Add10f4bD0479239Ab88D50044cf74c580DE6E` and it is on the `base-sepolia` network.",
+    "metadata": "data:application/json,{\"name\":\"Debate NFT\",\"description\":\"NFT for debate test_debate_001\",\"debate_id\":\"test_debate_001\",\"funding_amount_eth\":\"3e-05\",\"target_address\":\"0xBd606164D19e32474CCBda3012783B218E10E52e\",\"debate_history\":\"\n        Participant 1: I propose we allocate funds for project X\n        Participant 2: What are the expected returns?\n        Participant 1: We expect 20% ROI in 6 months\n        Participant 2: That sounds reasonable, I support this\n        Moderator: The proposal has received majority support\n        \",\"debate_result\":\"True\",\"timestamp\":\"2025-02-03T23:44:03.932898\"}"
+  },
+  "response": "The NFT has been successfully minted from the contract `0x1930DE4012ad7571Ec078432fd5b8c02E33d158a` to the address `0x10Add10f4bD0479239Ab88D50044cf74c580DE6E` on the base-sepolia network.\n\n- **Transaction hash**: [0x4d275eb0468b3ced002da3e6f834516ecb15195d5e27c68d57defd53a4f5d593](https://sepolia.basescan.org/tx/0x4d275eb0468b3ced002da3e6f834516ecb15195d5e27c68d57defd53a4f5d593)\n\nThe token URI data includes detailed information, such as the debate history and result, timestamp, and other metadata for record keeping."
+}

@@ -61,9 +61,9 @@ class ResponseCache:
         except Exception as e:
             logger.error(f"Error writing cache: {str(e)}")
 
-class TreasurerAgent:
+class JudgeAgent:
     def __init__(self, debate_id: str, target_address: str, funding_amount_eth: float, use_cache: bool = True):
-        """Initialize a treasurer agent for a specific debate.
+        """Initialize a judge agent for a specific debate.
         
         Args:
             debate_id (str): Unique identifier for the debate
@@ -79,7 +79,7 @@ class TreasurerAgent:
         self.cache = ResponseCache() if use_cache else None
         load_dotenv()
         
-        logger.info(f"Initializing TreasurerAgent for debate: {debate_id}")
+        logger.info(f"Initializing JudgeAgent for debate: {debate_id}")
         logger.info(f"Target address: {target_address}")
         logger.info(f"Required funding: {funding_amount_eth} ETH")
         logger.info(f"Cache enabled: {use_cache}")
@@ -122,7 +122,7 @@ class TreasurerAgent:
 
         # Set up memory and config
         memory = MemorySaver()
-        config = {"configurable": {"thread_id": f"DAO_Treasurer_{self.debate_id}"}}
+        config = {"configurable": {"thread_id": f"DAO_Judge_{self.debate_id}"}}
 
         # Create ReAct Agent using the LLM and CDP Agentkit tools
         return create_react_agent(
@@ -130,7 +130,7 @@ class TreasurerAgent:
             tools=tools,
             checkpointer=memory,
             state_modifier=(
-                "You are a responsible treasurer AI agent for a DAO debate. "
+                "You are a responsible judge AI agent for a DAO debate. "
                 "Your primary responsibilities include managing funds, tracking expenses, "
                 "and ensuring proper distribution of rewards. You should always verify "
                 "wallet balances before making transactions and maintain detailed logs "
@@ -153,7 +153,7 @@ class TreasurerAgent:
             self.cache.set(function_name, response, **kwargs)
 
     def get_wallet_address(self) -> str:
-        """Get the wallet address for this treasurer agent."""
+        """Get the wallet address for this judge agent."""
         try:
             # Check cache first
             cached_response = self._get_cached_response("get_wallet_address", debate_id=self.debate_id)
@@ -185,7 +185,7 @@ class TreasurerAgent:
             raise
 
     def check_funding_status(self) -> bool:
-        """Check if the treasurer wallet has the required funding amount.
+        """Check if the judge wallet has the required funding amount.
         
         Returns:
             bool: True if the required funding is available, False otherwise
@@ -449,15 +449,15 @@ class TreasurerAgent:
 
 
 def main():
-    """Test the TreasurerAgent implementation."""
+    """Test the JudgeAgent implementation."""
     try:
-        # 1. Create a treasurer agent for a test debate
+        # 1. Create a judge agent for a test debate
         debate_id = "test_debate_001"
         target_address = "0xBd606164D19e32474CCBda3012783B218E10E52e"
         funding_amount_eth = 0.00003
         
-        logger.info("Creating treasurer agent...")
-        treasurer = TreasurerAgent(
+        logger.info("Creating judge agent...")
+        judge = JudgeAgent(
             debate_id=debate_id,
             target_address=target_address,
             funding_amount_eth=funding_amount_eth,
@@ -466,17 +466,17 @@ def main():
         
         # 2. Get and print the wallet address
         logger.info("Requesting wallet address...")
-        wallet_address = treasurer.get_wallet_address()
-        print(f"\nTreasurer Agent Wallet Address: {wallet_address}")
+        wallet_address = judge.get_wallet_address()
+        print(f"\nJudge Agent Wallet Address: {wallet_address}")
         
         # 3. Get faucet funds for gas
         logger.info("Requesting faucet funds...")
-        faucet_response = treasurer.request_faucet()
+        faucet_response = judge.request_faucet()
         print(f"\nFaucet Response: {faucet_response}")
         
         # 4. Deploy NFT contract
         logger.info("Deploying NFT contract...")
-        deploy_response = treasurer.deploy_nft_contract()
+        deploy_response = judge.deploy_nft_contract()
         print(f"\nNFT Contract Deployment Response: {deploy_response}")
         
         # Extract NFT contract address from deployment response
@@ -489,12 +489,12 @@ def main():
         
         # 5. Request faucet funds (to simulate DAO depositing funds into the AI agent)
         logger.info("Requesting faucet funds...")
-        faucet_response = treasurer.request_faucet()
+        faucet_response = judge.request_faucet()
         print(f"\nFaucet Response: {faucet_response}")
         
         # 6. Check funding status
         logger.info("Checking funding status...")
-        funding_status = treasurer.check_funding_status()
+        funding_status = judge.check_funding_status()
         print(f"\nFunding Status: {'Funds Available' if funding_status else 'Insufficient Funds'}")
         
         # Simulate debate history (in real implementation, this would come from the debate system)
@@ -515,14 +515,14 @@ def main():
             
             # 8. Transfer funds if debate was approved
             logger.info("Processing debate result...")
-            transfer_response = treasurer.transfer_funds_if_approved(debate_result)
+            transfer_response = judge.transfer_funds_if_approved(debate_result)
             if transfer_response:
                 print(f"\nTransfer Response: {transfer_response}")
                 print("\nFunds have been transferred to the target address!")
                 
                 # 9. Mint NFT after successful transfer with debate history
                 logger.info("Minting NFT with debate results...")
-                mint_response = treasurer.mint_nft(contract_address, debate_history, debate_result)
+                mint_response = judge.mint_nft(contract_address, debate_history, debate_result)
                 print(f"\nNFT Minting Response: {mint_response}")
             else:
                 print("\nNo funds were transferred (debate was rejected)")

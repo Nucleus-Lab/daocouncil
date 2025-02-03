@@ -1,0 +1,7 @@
+{
+  "function": "request_faucet",
+  "params": {
+    "debate_id": "test_debate_001"
+  },
+  "response": "I have successfully requested funds from the faucet. You can view the transaction [here](https://sepolia.basescan.org/tx/0x720e575f3e57a74b2ad05cfb5e60a496054f35b6021eaac714ef494f6c125422)."
+}
