@@ -7,12 +7,12 @@ const JurorOpinions = ({
   setIsJurorOpinionsExpanded 
 }) => {
   return (
-    <div className={`font-['Source_Code_Pro','IBM_Plex_Mono',monospace] antialiased ${
+    <div className={`h-full font-['Source_Code_Pro','IBM_Plex_Mono',monospace] antialiased ${
       isJurorOpinionsExpanded 
         ? 'fixed inset-4 z-50 bg-gradient-to-br from-gray-900 to-court-brown shadow-2xl p-4' 
-        : 'flex-1 h-[45%] bg-gradient-to-br from-gray-900 to-court-brown shadow-lg p-1.5'
-    } min-h-0 flex flex-col transition-all duration-300`}>
-      <div className="flex items-center justify-between mb-2">
+        : 'bg-gradient-to-br from-gray-900 to-court-brown shadow-lg p-1.5'
+    } flex flex-col min-h-0`}>
+      <div className="flex-none flex items-center justify-between mb-2">
         <h2 className="text-sm text-amber-200 flex items-center gap-1 tracking-wide">
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

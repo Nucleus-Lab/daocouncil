@@ -1,17 +1,17 @@
 import React from 'react';
 import UserAvatar from './UserAvatar';
 
-const Messages = ({ 
-  messages, 
-  currentMessage, 
-  setCurrentMessage, 
-  handleSubmit, 
-  userStance, 
-  setUserStance 
+const Messages = ({
+  messages,
+  currentMessage,
+  setCurrentMessage,
+  handleSubmit,
+  userStance,
+  setUserStance
 }) => {
   return (
-    <div className="w-[50%] bg-white shadow-lg p-1.5 flex flex-col min-h-0">
-      <h2 className="text-lg font-bold mb-1.5 text-court-brown">Debate Chat</h2>
+    <div className="h-full flex flex-col p-1.5">
+      <h2 className="flex-none text-lg font-bold mb-1.5 text-court-brown">Debate Chat</h2>
       
       {/* Pinned Message */}
       <div className="flex-none mb-1.5 bg-amber-50 border border-amber-200 p-1.5">
@@ -34,7 +34,7 @@ const Messages = ({
       </div>
 
       {/* Chat Messages */}
-      <div className="flex-1 overflow-y-auto space-y-1.5 mb-2 min-h-0 pr-1.5">
+      <div className="flex-1 overflow-y-auto min-h-0 space-y-1.5 mb-2 pr-1.5">
         {messages.slice(1).map((message) => (
           <div
             key={message.id}

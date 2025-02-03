@@ -1,5 +1,6 @@
 import React from 'react';
 import characterSprite from '../assets/character.png';
+import bgImage from '../assets/bg.jpg';
 
 const CourtRoom = ({ jurorOpinions }) => {
   const calculateVotePercentages = () => {
@@ -13,7 +14,14 @@ const CourtRoom = ({ jurorOpinions }) => {
   const percentage = calculateVotePercentages();
 
   return (
-    <div className="relative h-[55%] bg-white shadow-lg overflow-hidden flex-none">
+    <div className="relative h-full">
+      {/* Background Image */}
+      <img 
+        src={bgImage} 
+        alt="Virtual Courtroom" 
+        className="absolute inset-0 w-full h-full object-cover"
+      />
+
       {/* Character Sprite */}
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 z-[5]">
         <img 

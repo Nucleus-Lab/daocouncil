@@ -178,16 +178,33 @@ const App = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col bg-gray-100 overflow-hidden">
+    <div className="fixed inset-0 flex flex-col bg-gray-100">
       <Header 
         walletConnected={walletConnected}
         demoWalletAddress={demoWalletAddress}
         onConnectWallet={handleConnectWallet}
       />
 
-      <main className="flex-1 flex p-1 gap-1 min-h-0">
+      <main className="flex-1 flex min-h-0 p-1 gap-1">
+        {/* Left Column */}
         <div className="w-[50%] flex flex-col gap-1 min-h-0">
-          <CourtRoom jurorOpinions={jurorOpinions} />
+          {/* Court Room */}
+          <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
+            <CourtRoom jurorOpinions={jurorOpinions} />
+          </div>
+          
+          {/* AI Jurors Opinions */}
+          <div className="h-[45%] min-h-0 flex-1">
+            <JurorOpinions 
+              jurorOpinions={jurorOpinions} 
+              isJurorOpinionsExpanded={isJurorOpinionsExpanded} 
+              setIsJurorOpinionsExpanded={setIsJurorOpinionsExpanded} 
+            />
+          </div>
+        </div>
+
+        {/* Right Column - Discord-like Chat */}
+        <div className="w-[50%] bg-white shadow-lg flex flex-col min-h-0">
           <Messages 
             messages={messages} 
             currentMessage={currentMessage} 
@@ -197,12 +214,6 @@ const App = () => {
             setUserStance={setUserStance} 
           />
         </div>
-
-        <JurorOpinions 
-          jurorOpinions={jurorOpinions} 
-          isJurorOpinionsExpanded={isJurorOpinionsExpanded} 
-          setIsJurorOpinionsExpanded={setIsJurorOpinionsExpanded} 
-        />
       </main>
     </div>
   );
