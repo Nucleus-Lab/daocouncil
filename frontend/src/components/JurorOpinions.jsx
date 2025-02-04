@@ -6,7 +6,9 @@ const JurorOpinions = ({
   jurorOpinions, 
   isJurorOpinionsExpanded, 
   setIsJurorOpinionsExpanded,
-  votingTrends 
+  votingTrends,
+  messages,
+  debateSides
 }) => {
   const [currentView, setCurrentView] = useState('opinions'); // 'opinions' or 'trends'
 
@@ -66,33 +68,21 @@ const JurorOpinions = ({
       </div>
       <div className={`flex-1 overflow-y-auto min-h-0 pr-1.5 ${isJurorOpinionsExpanded ? 'p-2' : ''}`}>
         {currentView === 'opinions' ? (
-          // Juror Opinions View
-          jurorOpinions.map((opinion) => (
-            <div key={opinion.id} className="mb-2 last:mb-0">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 text-amber-200">
-                  <UserAvatar name={opinion.juror} size="normal" />
-                  <span className="tracking-wide">{opinion.juror}</span>
-                  <span className="text-amber-200/30">─</span>
-                  <span className={`px-1.5 text-xs ${
-                    opinion.vote === 'yes' 
-                      ? 'text-green-300' 
-                      : 'text-red-300'
-                  }`}>
-                    {opinion.vote.toUpperCase()}
-                  </span>
-                  <span className="text-amber-200/30 text-xs">score: {opinion.score}/100</span>
-                </div>
-                <div className="text-gray-300 pl-1">
-                  <span className="text-amber-200/50">{'>'}{'>'}</span>
-                  <span className="ml-2 tracking-wide text-sm">{opinion.opinion}</span>
+          <div className="flex-1 overflow-y-auto min-h-0 space-y-2">
+            {jurorOpinions.map((opinion, index) => (
+              <div key={index} className="p-3 bg-white/5 rounded">
+                <div className="flex items-start gap-3">
+                  <UserAvatar name={opinion.name} />
+                  <div>
+                    <div className="text-amber-200/90 text-sm mb-1">{opinion.name}</div>
+                    <div className="text-amber-50/80 text-sm whitespace-pre-wrap">{opinion.opinion}</div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
-          // Voting Trends View
-          <VotingTrends votingData={votingTrends} />
+          <VotingTrends messages={messages} debateSides={debateSides} votingData={votingTrends} />
         )}
       </div>
     </div>

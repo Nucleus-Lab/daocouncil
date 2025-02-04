@@ -24,6 +24,12 @@ const App = () => {
   const [currentView, setCurrentView] = useState('welcome');
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
+  const [currentDebateId, setCurrentDebateId] = useState('');
+  const [username, setUsername] = useState('');
+  const [debateSides, setDebateSides] = useState([
+    { id: '1', name: 'Side 1' },
+    { id: '2', name: 'Side 2' }
+  ]);
   const demoWalletAddress = "0x1234...5678";
 
   useEffect(() => {
@@ -37,13 +43,12 @@ const App = () => {
   }, [ready, authenticated, user]);
 
   // Existing state and hooks
+  const [currentMessage, setCurrentMessage] = useState('');
   const {
     messages,
     setMessages,
-    currentMessage,
-    setCurrentMessage,
     addMessage
-  } = useMessages();
+  } = useMessages(walletAddress, username);
 
   const {
     jurorOpinions,
@@ -54,6 +59,7 @@ const App = () => {
 
   const [currentRound, setCurrentRound] = useState(1);
   const [userStance, setUserStance] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
 
   // Add voting trends data
   const [votingTrends, setVotingTrends] = useState([
@@ -225,29 +231,34 @@ const App = () => {
   };
 
   const handleCreateDebate = (formData) => {
+    setCurrentDebateId(formData.debateId);
+    setDebateSides(formData.sides);
     console.log('Creating debate:', formData);
     setMessages([{
       id: 1,
-      text: `Today we are discussing: ${formData.topic}`,
+      text: formData.actionPrompt,
       sender: 'Moderator',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      stance: null,
-      isSystem: true
+      timestamp: new Date().toLocaleTimeString(),
+      isPinned: true
     }]);
-    setJurorOpinions([]);
     setCurrentView('debate');
   };
 
-  const handleJoinDebate = (debateId) => {
-    console.log('Joining debate:', debateId);
+  const handleJoinDebate = ({ debateId, username: chosenUsername }) => {
+    setCurrentDebateId(debateId);
+    setUsername(chosenUsername);
+    // In a real app, you would fetch the debate data including sides here
     initializeDemoContent();
     setCurrentView('debate');
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!currentMessage.trim()) return;
-    addMessage(currentMessage, userStance, currentRound);
+  const handleSubmitMessage = (messageData) => {
+    addMessage(
+      messageData.text,
+      messageData.stance,
+      currentRound,
+      messageData.replyTo
+    );
   };
 
   // Render different views based on currentView state
@@ -283,8 +294,8 @@ const App = () => {
             <Header 
               walletConnected={walletConnected}
               walletAddress={walletAddress}
-              demoWalletAddress={demoWalletAddress}
               onConnectWallet={handleConnectWallet}
+              debateId={currentDebateId}
             />
 
             <main className="flex-1 flex min-h-0 p-1 gap-1">
@@ -302,6 +313,11 @@ const App = () => {
                     isJurorOpinionsExpanded={isJurorOpinionsExpanded} 
                     setIsJurorOpinionsExpanded={setIsJurorOpinionsExpanded}
                     votingTrends={votingTrends}
+                    messages={messages.map(msg => ({
+                      ...msg,
+                      replyTo: msg.replyTo ? messages.find(m => m.id === msg.replyTo.id) : null
+                    }))}
+                    debateSides={debateSides}
                   />
                 </div>
               </div>
@@ -309,12 +325,16 @@ const App = () => {
               {/* Right Column - Discord-like Chat */}
               <div className="w-[50%] bg-white shadow-lg flex flex-col min-h-0">
                 <Messages 
-                  messages={messages} 
-                  currentMessage={currentMessage} 
-                  setCurrentMessage={setCurrentMessage} 
-                  handleSubmit={handleSubmit} 
-                  userStance={userStance} 
-                  setUserStance={setUserStance} 
+                  messages={messages.map(msg => ({
+                    ...msg,
+                    replyTo: msg.replyTo ? messages.find(m => m.id === msg.replyTo.id) : null
+                  }))}
+                  currentMessage={currentMessage}
+                  setCurrentMessage={setCurrentMessage}
+                  onSubmit={handleSubmitMessage}
+                  userStance={userStance}
+                  setUserStance={setUserStance}
+                  debateSides={debateSides}
                 />
               </div>
             </main>
