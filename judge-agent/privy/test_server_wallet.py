@@ -8,6 +8,15 @@ from decimal import Decimal
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+# Network configurations
+NETWORK_IDS = {
+    "ethereum": "eip155:1",
+    "sepolia": "eip155:11155111",
+    "base": "eip155:8453",
+    "base sepolia": "eip155:84532",
+    "base goerli": "eip155:84531"
+}
+
 class PrivyServerWallet:
     def __init__(self):
         # Load environment variables
@@ -72,7 +81,7 @@ class PrivyServerWallet:
             logger.error(f"Error converting ETH to Wei: {str(e)}")
             raise
 
-    def send_transaction(self, wallet_id, recipient_address, eth_amount, network="eip155:11155111"):
+    def send_transaction(self, wallet_id, recipient_address, eth_amount, network="base sepolia"):
         """
         Send a transaction using the specified wallet
         
@@ -80,7 +89,7 @@ class PrivyServerWallet:
             wallet_id (str): The ID of the wallet to send from
             recipient_address (str): The recipient's Ethereum address
             eth_amount (float): The amount to send in ETH
-            network (str): The network identifier (default is Sepolia testnet)
+            network (str): The network name (default is "base sepolia")
         
         Returns:
             dict: Transaction response data including the transaction hash
@@ -95,9 +104,16 @@ class PrivyServerWallet:
         # Convert ETH to Wei
         wei_value = self._eth_to_wei(eth_amount)
         
+        # Get network ID from the network name
+        network_id = NETWORK_IDS.get(network.lower())
+        if not network_id:
+            raise ValueError(f"Unsupported network: {network}. Supported networks: {', '.join(NETWORK_IDS.keys())}")
+        
+        logger.info(f"Using network: {network} ({network_id})")
+        
         data = {
             "method": "eth_sendTransaction",
-            "caip2": network,
+            "caip2": network_id,
             "params": {
                 "transaction": {
                     "to": recipient_address,
@@ -129,6 +145,11 @@ class PrivyServerWallet:
             raise
 
 def main():
+    # user defined values
+    network = "base sepolia"  # Using Base Sepolia testnet
+    recipient = "0xYourRecipientAddress"  # Replace with actual recipient address
+    eth_amount = 0.01  # Amount in ETH
+    
     try:
         # Initialize the Privy wallet client
         privy_wallet = PrivyServerWallet()
@@ -139,15 +160,12 @@ def main():
         print(f"Wallet ID: {wallet['id']}")
         print(f"Wallet Address: {wallet['address']}")
         
-        # Example of sending a transaction
-        recipient = "0xYourRecipientAddress"  # Replace with actual recipient address
-        eth_amount = 0.01  # Amount in ETH
-        
         print("\nSending transaction...")
         tx = privy_wallet.send_transaction(
             wallet_id=wallet['id'],
             recipient_address=recipient,
-            eth_amount=eth_amount
+            eth_amount=eth_amount,
+            network=network
         )
         print(f"Transaction sent! Hash: {tx.get('hash')}")
         
