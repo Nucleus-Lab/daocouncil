@@ -14,7 +14,7 @@ from langgraph.prebuilt import create_react_agent
 from decimal import Decimal
 import requests
 from web3 import Web3
-from .custom_tools import get_privy_transfer_tool
+from custom_tools import get_privy_tools
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -87,7 +87,7 @@ class PrivyServerWallet:
         
         logger.info("Privy Server Wallet initialized successfully")
 
-    def create_wallet(self):
+    def create_wallet(self, chain_type: str):
         """Create a new server wallet"""
         endpoint = f"{self.base_url}/wallets"
         
@@ -97,7 +97,7 @@ class PrivyServerWallet:
         }
         
         data = {
-            'chain_type': 'ethereum'
+            'chain_type': chain_type
         }
         
         logger.info("Creating new Privy server wallet...")
@@ -138,8 +138,8 @@ class JudgeAgent:
         self.wallet_data_file = f"wallet_data_{debate_id}.txt"
         self.use_cache = use_cache
         self.cache = ResponseCache() if use_cache else None
-        self.privy_wallet = None  # Will store the Privy wallet data
-        self.wallet_id = None     # Will store the Privy wallet ID
+        self.privy_wallet = None  # Will be set during initialization
+        self.wallet_id = None     # Will be set during initialization
         load_dotenv()
         
         logger.info(f"Initializing JudgeAgent for debate: {debate_id}")
@@ -147,38 +147,46 @@ class JudgeAgent:
         logger.info(f"Required funding: {funding_amount_eth} ETH")
         logger.info(f"Cache enabled: {use_cache}")
         
-        # Create a new Privy wallet for this debate
-        self._create_privy_wallet()
-        
-        # Initialize the agent with the new wallet
+        # Initialize the agent and get the debate vault wallet
         self.agent_executor, self.config = self._initialize_agent()
+        self._get_or_create_debate_vault()
 
-    def _create_privy_wallet(self):
-        """Create a new Privy server wallet for this debate."""
+    def _get_or_create_debate_vault(self):
+        """Get existing or create new Privy wallet for this debate."""
         try:
-            privy = PrivyServerWallet()
-            wallet_data = privy.create_wallet()
+            message = (
+                f"Use the privy_get_or_create_wallet tool to get or create a wallet "
+                f"for debate ID: {self.debate_id}. This will be our vault for the debate funds."
+                f"Return the wallet data in the format of Wallet data: <wallet_data>."
+            )
             
-            self.privy_wallet = wallet_data
-            self.wallet_id = wallet_data['id']
+            logger.info("Getting/Creating Privy wallet for debate...")
             
-            # Save wallet data to file
-            with open(self.wallet_data_file, 'w') as f:
-                json.dump(wallet_data, f, indent=2)
-            
-            logger.info(f"Created new Privy wallet for debate {self.debate_id}")
-            logger.info(f"Wallet ID: {self.wallet_id}")
-            logger.info(f"Wallet Address: {wallet_data['address']}")
-            
+            for chunk in self.agent_executor.stream(
+                {"messages": [HumanMessage(content=message)]},
+                self.config
+            ):
+                if "agent" in chunk:
+                    response = chunk["agent"]["messages"][0].content
+                    if "Wallet data:" in response:
+                        # Extract wallet data from response
+                        import json
+                        wallet_str = response.split("Wallet data: ")[1]
+                        self.privy_wallet = json.loads(wallet_str.replace("'", '"'))
+                        self.wallet_id = self.privy_wallet['id']
+                        logger.info(f"Retrieved/Created Privy wallet with ID: {self.wallet_id}")
+                elif "tools" in chunk:
+                    logger.info(f"Tool execution: {chunk['tools']['messages'][0].content}")
+                
         except Exception as e:
-            logger.error(f"Failed to create Privy wallet: {str(e)}")
+            logger.error(f"Failed to get/create debate vault: {str(e)}")
             raise
 
     def _initialize_agent(self):
         """Initialize the CDP agent with wallet and tools."""
         # Initialize LLM
         llm = ChatOpenAI(
-            model="gpt-4o",
+            model="gpt-4o-mini",
             temperature=0,
             # openai_api_base=os.getenv("DEEPSEEK_BASE_URL"),
             # openai_api_key=os.getenv("DEEPSEEK_API_KEY")
@@ -186,30 +194,16 @@ class JudgeAgent:
             openai_api_key=os.getenv("GPTUS_API_KEY")
         )
 
-        # Load the Privy wallet data
-        wallet_data = None
-        if os.path.exists(self.wallet_data_file):
-            logger.info(f"Loading Privy wallet data for debate: {self.debate_id}")
-            with open(self.wallet_data_file) as f:
-                wallet_data = json.load(f)
-
-        # Configure CDP Agentkit with Privy wallet data
-        values = {}
-        if wallet_data is not None:
-            values = {
-                "cdp_wallet_data": json.dumps(wallet_data),
-                "wallet_id": wallet_data['id']
-            }
-
-        agentkit = CdpAgentkitWrapper(**values)
+        # Initialize CDP Agentkit without Privy wallet data - let it use its own wallet
+        agentkit = CdpAgentkitWrapper()
 
         # Initialize toolkit and tools
         cdp_toolkit = CdpToolkit.from_cdp_agentkit_wrapper(agentkit)
         tools = cdp_toolkit.get_tools()
 
-        # Add Privy transfer tool
-        privy_transfer_tool = get_privy_transfer_tool(agentkit)
-        tools.append(privy_transfer_tool)
+        # Add Privy tools
+        privy_tools = get_privy_tools(agentkit)
+        tools.extend(privy_tools)
 
         # Set up memory and config
         memory = MemorySaver()
@@ -222,13 +216,13 @@ class JudgeAgent:
             checkpointer=memory,
             state_modifier=(
                 "You are a responsible judge AI agent for a DAO debate. "
-                "Your primary responsibilities include managing funds, tracking expenses, "
-                "and ensuring proper distribution of rewards using your Privy wallet. "
-                f"Your Privy wallet ID is {self.wallet_id}. You should always verify "
-                "wallet balances before making transactions and maintain detailed logs "
-                "of all financial activities. You can transfer funds using the privy_transfer "
-                "tool. You can also deploy and manage NFTs. If you ever need funds, you can "
-                "request them from the faucet if you are on network ID 'base-sepolia'."
+                "You have two wallets: your CDP wallet for agent operations and "
+                f"a Privy wallet (ID: {self.wallet_id}) that acts as a vault for debate funds. "
+                "Your workflow is:\n"
+                "1. Get funds from faucet to your CDP wallet\n"
+                "2. Transfer funds from CDP wallet to Privy vault\n"
+                "3. After debate completion, transfer from Privy vault to target address\n"
+                "Always verify wallet balances before transactions and maintain detailed logs."
             ),
         ), config
 
@@ -244,32 +238,15 @@ class JudgeAgent:
             self.cache.set(function_name, response, **kwargs)
 
     def get_wallet_address(self) -> str:
-        """Get the wallet address for this judge agent."""
+        """Get the vault wallet address for this debate."""
         try:
-            # Check cache first
-            cached_response = self._get_cached_response("get_wallet_address", debate_id=self.debate_id)
-            if cached_response is not None:
-                logger.info("Using cached wallet address")
-                return cached_response
-
-            # Get address from Privy wallet data
-            if not self.privy_wallet or 'address' not in self.privy_wallet:
-                raise ValueError("Privy wallet not initialized or missing address")
-            
-            wallet_address = self.privy_wallet['address']
-            logger.info(f"Retrieved wallet address for debate: {self.debate_id}")
-            
-            # Cache the response
-            self._set_cached_response("get_wallet_address", wallet_address, debate_id=self.debate_id)
-            
-            return wallet_address
-            
+            return self.privy_wallet['address']
         except Exception as e:
-            logger.error(f"Error getting wallet address: {str(e)}")
+            logger.error(f"Error getting vault wallet address: {str(e)}")
             raise
 
     def check_funding_status(self) -> bool:
-        """Check if the judge wallet has the required funding amount using Web3.
+        """Check if the vault wallet has the required funding amount using Web3.
         
         Returns:
             bool: True if the required funding is available, False otherwise
@@ -284,8 +261,9 @@ class JudgeAgent:
                 logger.info("Using cached balance check response")
                 return cached_response.lower() == 'true'
 
-            # Get wallet address
-            wallet_address = self.privy_wallet['address']
+            # Get vault wallet address
+            vault_address = self.get_wallet_address()
+            logger.info(f"Checking balance for vault wallet: {vault_address}")
             
             # Initialize Web3 with Base Sepolia RPC URL
             w3 = Web3(Web3.HTTPProvider(NETWORK_RPC_URLS["base sepolia"]))
@@ -295,7 +273,7 @@ class JudgeAgent:
                 raise ConnectionError("Failed to connect to Base Sepolia network")
             
             # Get balance in Wei
-            balance_wei = w3.eth.get_balance(wallet_address)
+            balance_wei = w3.eth.get_balance(vault_address)
             balance_eth = Web3.from_wei(balance_wei, 'ether')
             
             # Convert required funding to Wei for comparison
@@ -308,12 +286,12 @@ class JudgeAgent:
             response = str(has_sufficient_funds)
             
             # Log the balance information
-            logger.info(f"Wallet balance: {balance_eth} ETH")
+            logger.info(f"Vault wallet balance: {balance_eth} ETH")
             logger.info(f"Required balance: {self.funding_amount_eth} ETH")
             if has_sufficient_funds:
-                logger.info("Sufficient funds available")
+                logger.info("Sufficient funds available in vault")
             else:
-                logger.warning(f"Insufficient funds. Required: {self.funding_amount_eth} ETH, Available: {balance_eth} ETH")
+                logger.warning(f"Insufficient funds in vault. Required: {self.funding_amount_eth} ETH, Available: {balance_eth} ETH")
             
             # Cache the response
             self._set_cached_response("check_funding_status", response,
@@ -324,11 +302,11 @@ class JudgeAgent:
             return has_sufficient_funds
                 
         except Exception as e:
-            logger.error(f"Error checking funding status: {str(e)}")
+            logger.error(f"Error checking vault funding status: {str(e)}")
             raise
 
     def request_faucet(self) -> str:
-        """Request funds from the faucet."""
+        """Request funds from the faucet to the CDP wallet."""
         try:
             # Check cache first
             cached_response = self._get_cached_response("request_faucet", debate_id=self.debate_id)
@@ -336,9 +314,12 @@ class JudgeAgent:
                 logger.info("Using cached faucet request response")
                 return cached_response
 
-            message = "Request funds from the faucet to get some test tokens."
+            message = (
+                "Request funds from the faucet to get test tokens for your CDP wallet. "
+                "These funds will later be transferred to the Privy vault."
+            )
             response = None
-            logger.info("Requesting faucet funds...")
+            logger.info("Requesting faucet funds to CDP wallet...")
             
             for chunk in self.agent_executor.stream(
                 {"messages": [HumanMessage(content=message)]},
@@ -404,7 +385,7 @@ class JudgeAgent:
             raise
 
     def mint_nft(self, contract_address: str, debate_history: str, debate_result: bool) -> str:
-        """Mint an NFT from an existing contract using debate ID and history as metadata.
+        """Mint an NFT from an existing contract to the debate vault address.
         
         Args:
             contract_address (str): The address of the NFT contract
@@ -415,9 +396,9 @@ class JudgeAgent:
             str: Response from the minting operation
         """
         try:
-            # Get our own wallet address first
-            wallet_address = self.get_wallet_address()
-            logger.info(f"Using wallet address for NFT minting: {wallet_address}")
+            # Get the vault wallet address
+            vault_address = self.get_wallet_address()
+            logger.info(f"Using vault wallet address for NFT minting: {vault_address}")
             
             # Create metadata including funding details and debate history
             metadata = (
@@ -428,6 +409,7 @@ class JudgeAgent:
                 f"\"target_address\":\"{self.target_address}\","
                 f"\"debate_history\":\"{debate_history}\","
                 f"\"debate_result\":\"{debate_result}\","
+                f"\"vault_address\":\"{vault_address}\","
                 f"\"timestamp\":\"{datetime.datetime.now().isoformat()}\"}}"
             )
             
@@ -435,7 +417,7 @@ class JudgeAgent:
             cached_response = self._get_cached_response("mint_nft", 
                 debate_id=self.debate_id,
                 contract_address=contract_address,
-                wallet_address=wallet_address,
+                vault_address=vault_address,
                 metadata=metadata
             )
             if cached_response is not None:
@@ -443,11 +425,12 @@ class JudgeAgent:
                 return cached_response
             
             message = (
-                f"Mint an NFT from contract {contract_address} to my current wallet address "
-                f"with token ID 1 and token URI {metadata} for record keeping."
+                f"Mint an NFT from contract {contract_address} to the debate vault "
+                f"address {vault_address} with token ID 1 and token URI {metadata}. "
+                f"This NFT will serve as a permanent record of debate {self.debate_id}."
             )
             response = None
-            logger.info(f"Minting NFT from contract: {contract_address} to wallet address: {wallet_address}")
+            logger.info(f"Minting NFT from contract: {contract_address} to vault address: {vault_address}")
             
             for chunk in self.agent_executor.stream(
                 {"messages": [HumanMessage(content=message)]},
@@ -465,13 +448,13 @@ class JudgeAgent:
                 self._set_cached_response("mint_nft", response,
                     debate_id=self.debate_id,
                     contract_address=contract_address,
-                    wallet_address=wallet_address,
+                    vault_address=vault_address,
                     metadata=metadata
                 )
             
             return response
         except Exception as e:
-            logger.error(f"Error minting NFT: {str(e)}")
+            logger.error(f"Error minting NFT to vault: {str(e)}")
             raise
 
     def transfer_funds_if_approved(self, debate_result: bool) -> Optional[str]:
@@ -530,7 +513,7 @@ class JudgeAgent:
             raise
 
     def transfer_initial_funds(self, amount_eth: float = 0.000099) -> str:
-        """Transfer initial funds from CDP wallet to the Privy wallet for the debate.
+        """Transfer initial funds from CDP wallet to the debate's vault wallet.
         
         Args:
             amount_eth (float): Amount of ETH to transfer (default: 0.000099 ETH)
@@ -539,15 +522,15 @@ class JudgeAgent:
             str: Response from the transfer operation
         """
         try:
-            # Get our Privy wallet address
-            privy_address = self.privy_wallet['address']
-            logger.info(f"Preparing to transfer {amount_eth} ETH to Privy wallet: {privy_address}")
+            # Get the vault wallet address
+            vault_address = self.get_wallet_address()
+            logger.info(f"Preparing to transfer {amount_eth} ETH from CDP wallet to debate vault: {vault_address}")
             
             # Check cache first
             cached_response = self._get_cached_response("transfer_initial_funds", 
                 debate_id=self.debate_id,
                 amount_eth=amount_eth,
-                privy_address=privy_address
+                vault_address=vault_address
             )
             if cached_response is not None:
                 logger.info("Using cached transfer response")
@@ -555,11 +538,12 @@ class JudgeAgent:
 
             # Construct transfer message for CDP agent
             message = (
-                f"Transfer {amount_eth} ETH from your CDP wallet to my Privy wallet address {privy_address}. "
-                "This is to fund the debate operations."
+                f"Transfer {amount_eth} ETH from your CDP wallet to the debate vault address {vault_address}. "
+                f"This will serve as the funding for debate {self.debate_id}. "
+                "Use your CDP wallet's own funds for this transfer, not the Privy wallet."
             )
             response = None
-            logger.info("Requesting CDP agent to transfer funds...")
+            logger.info("Initiating transfer from CDP wallet to debate vault...")
             
             for chunk in self.agent_executor.stream(
                 {"messages": [HumanMessage(content=message)]},
@@ -577,13 +561,13 @@ class JudgeAgent:
                 self._set_cached_response("transfer_initial_funds", response,
                     debate_id=self.debate_id,
                     amount_eth=amount_eth,
-                    privy_address=privy_address
+                    vault_address=vault_address
                 )
             
             return response
             
         except Exception as e:
-            logger.error(f"Error transferring initial funds: {str(e)}")
+            logger.error(f"Error transferring initial funds to debate vault: {str(e)}")
             raise
 
 
@@ -600,32 +584,35 @@ def main():
             debate_id=debate_id,
             target_address=target_address,
             funding_amount_eth=funding_amount_eth,
-            use_cache=True  # Set to False to disable caching
+            use_cache=True
         )
         
-        # 2. Get and print the wallet address
-        logger.info("Requesting wallet address...")
-        wallet_address = judge.get_wallet_address()
-        print(f"\nJudge Agent Wallet Address: {wallet_address}")
+        # 2. Get and print the wallet addresses
+        logger.info("Getting wallet addresses...")
+        privy_address = judge.get_wallet_address()
+        print(f"\nPrivy Vault Address: {privy_address}")
         
-        # 3.1 Get faucet funds for gas
-        logger.info("Requesting faucet funds...")
+        # 3. Get faucet funds to CDP wallet
+        logger.info("Requesting faucet funds to CDP wallet...")
         faucet_response = judge.request_faucet()
         print(f"\nFaucet Response: {faucet_response}")
         
-        # 3.2 Use CDP Agentkit to transfer initial funds to the Privy wallet
-        logger.info("Transferring initial funds to Privy wallet...")
+        # 4. Transfer funds from CDP wallet to Privy vault
+        logger.info("Transferring funds from CDP wallet to Privy vault...")
         transfer_response = judge.transfer_initial_funds()
         print(f"\nInitial Fund Transfer Response: {transfer_response}")
         
-        # 4. Check funding status
+        # 5. Get faucet funds to CDP wallet for gas
+        logger.info("Requesting faucet funds to CDP wallet...")
+        faucet_response = judge.request_faucet()
+        print(f"\nFaucet Response: {faucet_response}")
+        
+        # 6. Check funding status
         logger.info("Checking funding status...")
         funding_status = judge.check_funding_status()
         print(f"\nFunding Status: {'Funds Available' if funding_status else 'Insufficient Funds'}")
         
-        
-        
-        # 5. Check if funding is available, debate can be started
+        # 6. Check if funding is available, debate can be started
         if funding_status:
             print("\nDebate can be started!")
             
@@ -641,14 +628,14 @@ def main():
             # Simulate debate result (in real implementation, this would come from the debate system)
             debate_result = True  # For testing, assume debate was approved
             
-            # 6. Transfer funds if debate was approved
+            # 7. Transfer funds if debate was approved
             logger.info("Processing debate result...")
             transfer_response = judge.transfer_funds_if_approved(debate_result)
             if transfer_response:
                 print(f"\nTransfer Response: {transfer_response}")
                 print("\nFunds have been transferred to the target address!")
                 
-                # 7. Deploy NFT contract
+                # 8. Deploy NFT contract
                 logger.info("Deploying NFT contract...")
                 deploy_response = judge.deploy_nft_contract()
                 print(f"\nNFT Contract Deployment Response: {deploy_response}")
@@ -661,7 +648,7 @@ def main():
                 contract_address = contract_address_match.group(0)
                 logger.info(f"Extracted contract address: {contract_address}")
                 
-                # 8. Mint NFT after successful transfer with debate history
+                # 9. Mint NFT after successful transfer with debate history
                 logger.info("Minting NFT with debate results...")
                 mint_response = judge.mint_nft(contract_address, debate_history, debate_result)
                 print(f"\nNFT Minting Response: {mint_response}")
