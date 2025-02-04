@@ -13,7 +13,7 @@ class DebateDB(Base):
     __tablename__ = "debates"
 
     id = Column(Integer, primary_key=True, index=True)
-    discussion_id = Column(Integer, index=True)
+    discussion_id = Column(Integer, index=True, unique=True)
     topic = Column(String)
     sides = Column(String)  # List of strings stored as JSON string
     juror_ids = Column(String)

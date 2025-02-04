@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from typing import List
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -16,6 +16,9 @@ class JurorDB(Base):
     juror_id = Column(Integer, index=True)
     discussion_id = Column(Integer, index=True)
     persona = Column(String)
+    __table_args__ = (
+        UniqueConstraint('juror_id', 'discussion_id', name='unique_juror_discussion'),
+    )
 
 class JurorResultDB(Base):
     __tablename__ = "juror_results"
