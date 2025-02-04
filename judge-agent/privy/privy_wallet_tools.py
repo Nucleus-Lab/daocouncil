@@ -46,6 +46,8 @@ class PrivyWalletTools:
             response.raise_for_status()
             wallet_data = response.json()
             
+            print("Wallet data", wallet_data)
+            
             print(f"Successfully created Privy wallet with address: {wallet_data.get('address')}")
             return wallet_data
             
@@ -114,9 +116,15 @@ class PrivyWalletTools:
             response.raise_for_status()
             result = response.json()
             
-            print(f"Transfer successful. Transaction hash: {result.get('hash')}")
-            return f"Successfully transferred {amount_eth} ETH to {recipient_address}. Transaction hash: {result.get('hash')}"
+            print("Transaction result", result)
             
+            print(f"Transfer successful. Transaction hash: {result.get('data').get('hash')}")
+            return f"Successfully transferred {amount_eth} ETH to {recipient_address}. Transaction hash: {result.get('data').get('hash')}"
+            
+
+
+
+
         except Exception as e:
             error_msg = f"Failed to transfer ETH: {str(e)}"
             print(error_msg)
