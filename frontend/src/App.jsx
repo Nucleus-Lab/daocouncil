@@ -4,15 +4,23 @@ import './App.css';
 // Components
 import Header from './components/Header';
 import CourtRoom from './components/CourtRoom';
-import UserAvatar from './components/UserAvatar';
 import Messages from './components/Messages';
 import JurorOpinions from './components/JurorOpinions';
+import WelcomePage from './components/WelcomePage';
+import CreateDebateForm from './components/CreateDebateForm';
+import JoinDebateForm from './components/JoinDebateForm';
 
 // Hooks
 import { useMessages } from './hooks/useMessages';
 import { useJurorOpinions } from './hooks/useJurorOpinions';
 
 const App = () => {
+  // State for debate management
+  const [currentView, setCurrentView] = useState('welcome'); // welcome, debate, createForm, joinForm
+  const [walletConnected, setWalletConnected] = useState(false);
+  const demoWalletAddress = "0x1234...5678";
+
+  // Existing state and hooks
   const {
     messages,
     setMessages,
@@ -30,11 +38,21 @@ const App = () => {
 
   const [currentRound, setCurrentRound] = useState(1);
   const [userStance, setUserStance] = useState('');
-  const [walletConnected, setWalletConnected] = useState(false);
-  const demoWalletAddress = "0x1234...5678";
 
-  // Initialize with demo content
-  useEffect(() => {
+  // Add voting trends data
+  const [votingTrends, setVotingTrends] = useState([
+    { time: '4:00 PM', yes: 0, no: 0 },
+    { time: '4:02 PM', yes: 2, no: 1 },
+    { time: '4:04 PM', yes: 3, no: 2 },
+    { time: '4:06 PM', yes: 4, no: 4 },
+    { time: '4:08 PM', yes: 6, no: 5 },
+    { time: '4:10 PM', yes: 8, no: 6 },
+    { time: '4:12 PM', yes: 10, no: 7 },
+    { time: '4:14 PM', yes: 12, no: 8 }
+  ]);
+
+  // Initialize with demo content when joining existing debate
+  const initializeDemoContent = () => {
     setMessages([
       {
         id: 1,
@@ -165,7 +183,47 @@ const App = () => {
         score: 65
       }
     ]);
-  }, []);
+  };
+
+  // Update voting trends when new messages are added
+  useEffect(() => {
+    if (messages.length > 1) { // Skip the first system message
+      const latestMessage = messages[messages.length - 1];
+      if (latestMessage.stance) {
+        const newDataPoint = {
+          time: latestMessage.timestamp,
+          yes: votingTrends[votingTrends.length - 1].yes + (latestMessage.stance === 'yes' ? 1 : 0),
+          no: votingTrends[votingTrends.length - 1].no + (latestMessage.stance === 'no' ? 1 : 0)
+        };
+        setVotingTrends([...votingTrends, newDataPoint]);
+      }
+    }
+  }, [messages]);
+
+  // Handlers for debate actions
+  const handleConnectWallet = () => {
+    setWalletConnected(true);
+  };
+
+  const handleCreateDebate = (formData) => {
+    console.log('Creating debate:', formData);
+    setMessages([{
+      id: 1,
+      text: `Today we are discussing: ${formData.topic}`,
+      sender: 'Moderator',
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      stance: null,
+      isSystem: true
+    }]);
+    setJurorOpinions([]);
+    setCurrentView('debate');
+  };
+
+  const handleJoinDebate = (debateId) => {
+    console.log('Joining debate:', debateId);
+    initializeDemoContent();
+    setCurrentView('debate');
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -173,50 +231,80 @@ const App = () => {
     addMessage(currentMessage, userStance, currentRound);
   };
 
-  const handleConnectWallet = () => {
-    setWalletConnected(true);
+  // Render different views based on currentView state
+  const renderView = () => {
+    switch (currentView) {
+      case 'welcome':
+        return (
+          <WelcomePage
+            onCreateDebate={() => setCurrentView('createForm')}
+            onJoinDebate={() => setCurrentView('joinForm')}
+            isWalletConnected={walletConnected}
+            onConnectWallet={handleConnectWallet}
+          />
+        );
+      case 'createForm':
+        return (
+          <CreateDebateForm
+            onSubmit={handleCreateDebate}
+            onCancel={() => setCurrentView('welcome')}
+          />
+        );
+      case 'joinForm':
+        return (
+          <JoinDebateForm
+            onSubmit={handleJoinDebate}
+            onCancel={() => setCurrentView('welcome')}
+          />
+        );
+      case 'debate':
+        return (
+          <div className="fixed inset-0 flex flex-col bg-gray-100">
+            <Header 
+              walletConnected={walletConnected}
+              demoWalletAddress={demoWalletAddress}
+              onConnectWallet={handleConnectWallet}
+            />
+
+            <main className="flex-1 flex min-h-0 p-1 gap-1">
+              {/* Left Column */}
+              <div className="w-[50%] flex flex-col gap-1 min-h-0">
+                {/* Court Room */}
+                <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
+                  <CourtRoom jurorOpinions={jurorOpinions} />
+                </div>
+                
+                {/* AI Jurors Opinions */}
+                <div className="h-[45%] min-h-0 flex-1">
+                  <JurorOpinions 
+                    jurorOpinions={jurorOpinions} 
+                    isJurorOpinionsExpanded={isJurorOpinionsExpanded} 
+                    setIsJurorOpinionsExpanded={setIsJurorOpinionsExpanded}
+                    votingTrends={votingTrends}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column - Discord-like Chat */}
+              <div className="w-[50%] bg-white shadow-lg flex flex-col min-h-0">
+                <Messages 
+                  messages={messages} 
+                  currentMessage={currentMessage} 
+                  setCurrentMessage={setCurrentMessage} 
+                  handleSubmit={handleSubmit} 
+                  userStance={userStance} 
+                  setUserStance={setUserStance} 
+                />
+              </div>
+            </main>
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
-  return (
-    <div className="fixed inset-0 flex flex-col bg-gray-100">
-      <Header 
-        walletConnected={walletConnected}
-        demoWalletAddress={demoWalletAddress}
-        onConnectWallet={handleConnectWallet}
-      />
-
-      <main className="flex-1 flex min-h-0 p-1 gap-1">
-        {/* Left Column */}
-        <div className="w-[50%] flex flex-col gap-1 min-h-0">
-          {/* Court Room */}
-          <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
-            <CourtRoom jurorOpinions={jurorOpinions} />
-          </div>
-          
-          {/* AI Jurors Opinions */}
-          <div className="h-[45%] min-h-0 flex-1">
-            <JurorOpinions 
-              jurorOpinions={jurorOpinions} 
-              isJurorOpinionsExpanded={isJurorOpinionsExpanded} 
-              setIsJurorOpinionsExpanded={setIsJurorOpinionsExpanded} 
-            />
-          </div>
-        </div>
-
-        {/* Right Column - Discord-like Chat */}
-        <div className="w-[50%] bg-white shadow-lg flex flex-col min-h-0">
-          <Messages 
-            messages={messages} 
-            currentMessage={currentMessage} 
-            setCurrentMessage={setCurrentMessage} 
-            handleSubmit={handleSubmit} 
-            userStance={userStance} 
-            setUserStance={setUserStance} 
-          />
-        </div>
-      </main>
-    </div>
-  );
+  return renderView();
 };
 
 export default App;
