@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 PRIVY_TRANSFER_PROMPT = """
 This tool will transfer ETH from a Privy wallet to another address using the Privy API.
 The tool requires the wallet ID, recipient address, and amount in ETH.
+Use the transaction hash from the tool, format it into the transaction link on the network you are using and return it.
+For example, if the transaction is on base-sepolia, the transaction link is https://sepolia.basescan.org/tx/<transaction_hash>
 """
+
 
 # Privy wallet creation tool description
 PRIVY_CREATE_WALLET_PROMPT = """
