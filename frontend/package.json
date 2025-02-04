@@ -10,11 +10,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@privy-io/react-auth": "^2.2.1",
+    "buffer": "^6.0.3",
+    "process": "^0.11.10",
     "react": "^18.2.0",
     "react-datepicker": "^8.0.0",
     "react-dom": "^18.2.0",
     "recharts": "^2.15.1",
-    "sharp": "^0.33.5"
+    "sharp": "^0.33.5",
+    "stream-browserify": "^3.0.0",
+    "util": "^0.12.5"
   },
   "devDependencies": {
     "@types/react": "^18.2.48",

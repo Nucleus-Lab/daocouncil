@@ -14,11 +14,27 @@ import JoinDebateForm from './components/JoinDebateForm';
 import { useMessages } from './hooks/useMessages';
 import { useJurorOpinions } from './hooks/useJurorOpinions';
 
+// Privy
+import { usePrivy } from '@privy-io/react-auth';
+
 const App = () => {
+  const { login, ready, authenticated, user } = usePrivy();
+  
   // State for debate management
-  const [currentView, setCurrentView] = useState('welcome'); // welcome, debate, createForm, joinForm
+  const [currentView, setCurrentView] = useState('welcome');
   const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
   const demoWalletAddress = "0x1234...5678";
+
+  useEffect(() => {
+    if (ready && authenticated && user?.wallet?.address) {
+      setWalletConnected(true);
+      setWalletAddress(user.wallet.address);
+    } else {
+      setWalletConnected(false);
+      setWalletAddress('');
+    }
+  }, [ready, authenticated, user]);
 
   // Existing state and hooks
   const {
@@ -200,9 +216,12 @@ const App = () => {
     }
   }, [messages]);
 
-  // Handlers for debate actions
-  const handleConnectWallet = () => {
-    setWalletConnected(true);
+  const handleConnectWallet = async () => {
+    try {
+      await login();
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+    }
   };
 
   const handleCreateDebate = (formData) => {
@@ -240,6 +259,7 @@ const App = () => {
             onCreateDebate={() => setCurrentView('createForm')}
             onJoinDebate={() => setCurrentView('joinForm')}
             isWalletConnected={walletConnected}
+            walletAddress={walletAddress}
             onConnectWallet={handleConnectWallet}
           />
         );
@@ -262,6 +282,7 @@ const App = () => {
           <div className="fixed inset-0 flex flex-col bg-gray-100">
             <Header 
               walletConnected={walletConnected}
+              walletAddress={walletAddress}
               demoWalletAddress={demoWalletAddress}
               onConnectWallet={handleConnectWallet}
             />

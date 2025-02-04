@@ -14,12 +14,15 @@ const CourtRoom = ({ jurorOpinions }) => {
   const percentage = calculateVotePercentages();
 
   return (
-    <div className="relative h-full">
+    <div className="relative h-full bg-gray-900">
       {/* Background Image */}
-      <img 
-        src={bgImage} 
-        alt="Virtual Courtroom" 
-        className="absolute inset-0 w-full h-full object-cover"
+      <div 
+        className="absolute inset-0 w-full h-full bg-center bg-cover bg-no-repeat"
+        style={{
+          backgroundImage: `url(${bgImage})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+        }}
       />
 
       {/* Character Sprite */}
