@@ -73,7 +73,7 @@ def post_debate(request: Debate):
     return new_debate
 
 @app.get("/debate/{discussion_id}")
-def return_debate_info(discussion_id: int):
+def return_debate_info(discussion_id: str):
     db = SessionLocal()
     debate = get_debate(db, discussion_id)
     db.close()
