@@ -91,7 +91,6 @@ class PrivyServerWallet:
             raise
 
     def send_transaction(self, wallet_id, recipient_address, eth_amount, network="base sepolia"):
-    def send_transaction(self, wallet_id, recipient_address, eth_amount, network="eip155:84532"):
         """
         Send a transaction using the specified wallet
         
