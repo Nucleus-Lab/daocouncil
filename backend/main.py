@@ -2,32 +2,33 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import os
-from fastapi import FastAPI, HTTPException
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.ext.declarative import declarative_base
-from typing import List
 import logging
+from typing import List
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
-logger = logging.getLogger()
-
-
-# custom modules
+from backend.database import SessionLocal, Base, engine
 from backend.data_structure import ChatMessage, User, Debate
 from backend.database.chat_message import create_chat_message, get_chat_history
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_all_juror_results
 from backend.database.debate import create_debate, get_debate
 
-# postgres database
-DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+logger = logging.getLogger()
+
+# 创建所有表
 Base.metadata.create_all(bind=engine)
 
 # fastapi app
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 @app.get("/")
 def read_root():
@@ -74,13 +75,22 @@ def get_msg(discussion_id: int):
 def post_user(request: User):
     db = SessionLocal()
     try:
-        new_user = create_user(db, request.username, request.user_address)
+        new_user = create_user(
+            db=db, 
+            username=request.username, 
+            user_address=request.user_address,
+            debate_id=request.debate_id
+        )
         db.commit()
-        return new_user
+        return {
+            "username": new_user.username,
+            "user_address": new_user.user_address,
+            "debate_id": new_user.debate_id
+        }
     except Exception as e:
         db.rollback()
-        logger.error(f"Error creating user: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error creating user")
+        logger.error(f"Error in post_user: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
 
@@ -88,25 +98,43 @@ def post_user(request: User):
 def post_debate(request: Debate):
     db = SessionLocal()
     try:
+        # 创建陪审团成员
         juror_ids = []
         for idx, persona in enumerate(request.jurors):
             create_juror(db=db, discussion_id=request.discussion_id, juror_id=idx, persona=persona)
             juror_ids.append(idx)
-        new_debate = create_debate(
-            db=db,
-            discussion_id=request.discussion_id,
-            topic=request.topic,
-            sides=request.sides,
-            juror_ids=juror_ids,
-            funding=request.funding,
-            action=request.action
-        )
-        db.commit()
-        return new_debate
+
+        # 创建辩论
+        try:
+            new_debate = create_debate(
+                db=db,
+                discussion_id=request.discussion_id,
+                topic=request.topic,
+                sides=request.sides,
+                juror_ids=juror_ids,
+                funding=request.funding,
+                action=request.action,
+                creator_address=request.creator_address
+            )
+            db.commit()
+            # 返回完整的辩论信息
+            return {
+                "discussion_id": new_debate.discussion_id,
+                "topic": new_debate.topic,
+                "sides": request.sides,
+                "action": new_debate.action,
+                "funding": new_debate.funding,
+                "jurors": request.jurors,
+                "creator_address": new_debate.creator_address
+            }
+        except Exception as e:
+            logger.error(f"Error in create_debate: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error creating debate: {str(e)}")
+            
     except Exception as e:
         db.rollback()
-        logger.error(f"Error creating debate: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error creating debate")
+        logger.error(f"Error in post_debate: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
 

@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 
-const JoinDebateForm = ({ onSubmit, onCancel, existingUsernames = [] }) => {
+const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   const [debateId, setDebateId] = useState('');
   const [username, setUsername] = useState('');
   const [error, setError] = useState('');
-  const validDebateId = 'ABC12345'; // 示例会议号
+  const validDebateId = '12345'; // 示例会议号，改为数字格式
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
 
@@ -16,20 +16,53 @@ const JoinDebateForm = ({ onSubmit, onCancel, existingUsernames = [] }) => {
       return;
     }
 
-    // 检查用户名是否已存在
-    if (existingUsernames.includes(username.trim())) {
-      setError('This username is already taken');
+    // 检查 debate ID 是否为数字
+    const debateIdNum = parseInt(debateId);
+    if (isNaN(debateIdNum)) {
+      setError('Debate ID must be a number');
       return;
     }
 
-    // 检查会议ID
-    if (debateId.toUpperCase() === validDebateId) {
-      onSubmit({
-        debateId,
-        username: username.trim()
+    try {
+      // 注册用户并加入辩论
+      const userResponse = await fetch('http://localhost:8000/user', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: username.trim(),
+          user_address: walletAddress,
+          debate_id: debateIdNum
+        }),
       });
-    } else {
-      setError('Invalid debate ID. Try ABC12345');
+
+      if (!userResponse.ok) {
+        const errorData = await userResponse.json();
+        throw new Error(errorData.detail || 'Failed to join debate');
+      }
+
+      // 获取辩论信息
+      const debateResponse = await fetch(`http://localhost:8000/debate/${debateIdNum}`);
+      if (!debateResponse.ok) {
+        throw new Error(`Invalid debate ID. Try ${validDebateId} for example`);
+      }
+
+      const debateInfo = await debateResponse.json();
+      // 确保 debateInfo 包含 discussion_id
+      const finalDebateInfo = {
+        ...debateInfo,
+        discussion_id: debateIdNum  // 添加 discussion_id
+      };
+      
+      onSubmit({
+        debateId: debateIdNum,
+        username: username.trim(),
+        debateInfo: finalDebateInfo
+      });
+    } catch (error) {
+      setError(error.message || 'Failed to join debate');
+      console.error('Error:', error);
     }
   };
 
@@ -49,9 +82,8 @@ const JoinDebateForm = ({ onSubmit, onCancel, existingUsernames = [] }) => {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-              placeholder="Enter your preferred username"
-              maxLength={20}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-court-brown focus:border-court-brown"
+              placeholder="Enter your username"
             />
           </div>
 
@@ -65,9 +97,12 @@ const JoinDebateForm = ({ onSubmit, onCancel, existingUsernames = [] }) => {
               required
               value={debateId}
               onChange={(e) => setDebateId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-              placeholder="Enter debate ID (e.g., ABC12345)"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-court-brown focus:border-court-brown"
+              placeholder={`Enter debate ID (e.g., ${validDebateId})`}
             />
+            <p className="mt-1 text-sm text-gray-500">
+              Please enter a numeric debate ID
+            </p>
           </div>
 
           {/* Error Message */}
@@ -77,17 +112,18 @@ const JoinDebateForm = ({ onSubmit, onCancel, existingUsernames = [] }) => {
             </div>
           )}
 
-          <div className="flex justify-end gap-4">
+          {/* Buttons */}
+          <div className="flex justify-end space-x-4">
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-court-brown text-white rounded-md hover:bg-opacity-90 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-white bg-court-brown rounded-md hover:bg-court-brown-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-court-brown"
             >
               Join Debate
             </button>

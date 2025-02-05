@@ -30,6 +30,7 @@ const App = () => {
     { id: '1', name: 'Side 1' },
     { id: '2', name: 'Side 2' }
   ]);
+  const [currentDebateInfo, setCurrentDebateInfo] = useState({}); // 添加这一行
   const demoWalletAddress = "0x1234...5678";
 
   useEffect(() => {
@@ -230,23 +231,23 @@ const App = () => {
     }
   };
 
-  const handleCreateDebate = (formData) => {
-    setCurrentDebateId(formData.debateId);
-    setDebateSides(formData.sides);
-    console.log('Creating debate:', formData);
-    setMessages([{
-      id: 1,
-      text: formData.actionPrompt,
-      sender: 'Moderator',
-      timestamp: new Date().toLocaleTimeString(),
-      isPinned: true
-    }]);
+  const handleCreateDebateSubmit = async (debateInfo) => {
+    // 设置初始消息
+    const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
+    await addMessage(initialMessage, null, 0, null, debateInfo);
+    
+    setCurrentDebateId(debateInfo.discussion_id.toString());
+    setDebateSides(debateInfo.sides.map((side, index) => ({
+      id: (index + 1).toString(),
+      name: side
+    })));
     setCurrentView('debate');
   };
 
-  const handleJoinDebate = ({ debateId, username: chosenUsername }) => {
+  const handleJoinDebate = ({ debateId, username: chosenUsername, debateInfo }) => {
     setCurrentDebateId(debateId);
     setUsername(chosenUsername);
+    setCurrentDebateInfo(debateInfo);  
     // In a real app, you would fetch the debate data including sides here
     initializeDemoContent();
     setCurrentView('debate');
@@ -257,7 +258,8 @@ const App = () => {
       messageData.text,
       messageData.stance,
       currentRound,
-      messageData.replyTo
+      messageData.replyTo,
+      currentDebateInfo  
     );
   };
 
@@ -267,18 +269,19 @@ const App = () => {
       case 'welcome':
         return (
           <WelcomePage
-            onCreateDebate={() => setCurrentView('createForm')}
+            onCreateDebate={() => setCurrentView('create')}
             onJoinDebate={() => setCurrentView('joinForm')}
             isWalletConnected={walletConnected}
             walletAddress={walletAddress}
             onConnectWallet={handleConnectWallet}
           />
         );
-      case 'createForm':
+      case 'create':
         return (
           <CreateDebateForm
-            onSubmit={handleCreateDebate}
+            onSubmit={handleCreateDebateSubmit}
             onCancel={() => setCurrentView('welcome')}
+            walletAddress={walletAddress}
           />
         );
       case 'joinForm':
@@ -286,6 +289,7 @@ const App = () => {
           <JoinDebateForm
             onSubmit={handleJoinDebate}
             onCancel={() => setCurrentView('welcome')}
+            walletAddress={walletAddress}
           />
         );
       case 'debate':
