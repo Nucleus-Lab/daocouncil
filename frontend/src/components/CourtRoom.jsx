@@ -85,62 +85,11 @@ const CourtRoom = () => {
                     className="w-full h-full"
                     style={{ imageRendering: 'pixelated' }}
                 />
-                
-                {/* Vote Controls */}
-                <div className="absolute top-4 left-4 space-x-2 z-10">
-                    <button 
-                        className={BUTTON_STYLES.vote1}
-                        onClick={() => handleVote('1')}
-                    >
-                        Vote 1
-                    </button>
-                    <button 
-                        className={BUTTON_STYLES.vote2}
-                        onClick={() => handleVote('2')}
-                    >
-                        Vote 2
-                    </button>
-                    <button 
-                        className={BUTTON_STYLES.vote3}
-                        onClick={() => handleVote('3')}
-                    >
-                        Vote 3
-                    </button>
-                </div>
-
-                {/* Judge Commands */}
-                <div className="absolute top-4 right-4 space-x-2 z-10">
-                    <button 
-                        className={BUTTON_STYLES.judgeStart}
-                        onClick={() => handleJudgeCommand(JUDGE_COMMANDS.START)}
-                    >
-                        Start
-                    </button>
-                    <button 
-                        className={BUTTON_STYLES.judgeMint}
-                        onClick={() => handleJudgeCommand(JUDGE_COMMANDS.MINT_NFT)}
-                    >
-                        Mint NFT
-                    </button>
-                    <button 
-                        className={BUTTON_STYLES.judgeTransfer}
-                        onClick={() => handleJudgeCommand(JUDGE_COMMANDS.TRANSFER)}
-                    >
-                        Transfer
-                    </button>
-                    <button 
-                        className={BUTTON_STYLES.judgeEnd}
-                        onClick={() => handleJudgeCommand(JUDGE_COMMANDS.END)}
-                    >
-                        End
-                    </button>
-                </div>
-
-                {/* Debug Info */}
-                <div className="absolute bottom-4 left-4 text-white text-sm">
-                    <p>Sprite should be at: ({POSITIONS.CENTER.x}, {POSITIONS.CENTER.y})</p>
-                </div>
             </div>
+
+              
+           
+
         </div>
     );
 };
