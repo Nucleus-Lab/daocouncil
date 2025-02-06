@@ -42,6 +42,11 @@ class JurorSprite {
         };
         
         logger.info(`Created ${characterId} juror at position (${initialX}, ${initialY})`);
+
+        // Increase the height of the speech bubble
+        this.speechBubbleHeight = 60; // Increase from default
+        this.speechBubbleWidth = 120; // Keep width the same
+        this.speechBubbleY = initialY - this.speechBubbleHeight - 10; // Adjust Y position for taller bubble
     }
 
     speak(text) {
@@ -201,9 +206,9 @@ class JurorSprite {
         ctx.fillRect(pointerX + pixelSize, pointerY + pixelSize, pixelSize*2, pixelSize);
         ctx.fillRect(pointerX + pixelSize*1.5, pointerY + pixelSize*2, pixelSize, pixelSize);
 
-        // Draw text
+        // Draw text - increase font size from 16px to 20px
         ctx.fillStyle = '#000000';
-        ctx.font = "16px 'Press Start 2P', monospace";
+        ctx.font = "20px 'Press Start 2P', monospace";
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(

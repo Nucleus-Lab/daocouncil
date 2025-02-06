@@ -12,6 +12,11 @@ class JudgeSprite extends JurorSprite {
     constructor(initialX, initialY) {
         super('judge', initialX, initialY, 'M_03');
         this.zIndex = 2; // Higher z-index to render above jurors
+
+        // Increase the height of the speech bubble
+        this.speechBubbleHeight = 60; // Increase from default (likely was around 40-50)
+        this.speechBubbleWidth = 120; // Keep width the same
+        this.speechBubbleY = initialY - this.speechBubbleHeight - 10; // Adjust Y position for taller bubble
     }
 
     // Override drawSpeechBubble to make it larger for longer text
@@ -22,7 +27,7 @@ class JudgeSprite extends JurorSprite {
         const padding = 24;  // Padding on each side of the text
         
         // Measure text width
-        ctx.font = "14px 'Press Start 2P', monospace";
+        ctx.font = "18px 'Press Start 2P', monospace";
         const textWidth = ctx.measureText(this.speechText).width;
         
         // Calculate bubble width based on text (with minimum width)
