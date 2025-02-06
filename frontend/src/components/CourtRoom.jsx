@@ -1,62 +1,97 @@
-import React from 'react';
-import characterSprite from '../assets/character.png';
-import bgImage from '../assets/bg.jpg';
+import React, { useEffect, useRef } from 'react';
+import GameEngine from '../game/engine/GameEngine';
+import CourtroomScene from '../game/scenes/CourtroomScene';
+import JurorSprite from '../game/sprites/JurorSprite';
+import JudgeSprite from '../game/sprites/JudgeSprite';
+import { POSITIONS, SPRITE_WIDTH, SPRITE_HEIGHT } from '../game/constants/dimensions';
+import { JUROR_CONFIG, JUDGE_COMMANDS, VOTE_DELAY } from '../game/constants/game';
+import { BUTTON_STYLES } from '../game/constants/ui';
+import { logger } from '../game/utils/logger';
 
-const CourtRoom = ({ jurorOpinions }) => {
-  const calculateVotePercentages = () => {
-    const totalScore = jurorOpinions.reduce((acc, opinion) => acc + opinion.score, 0);
-    const yesScore = jurorOpinions
-      .filter(opinion => opinion.vote === 'yes')
-      .reduce((acc, opinion) => acc + opinion.score, 0);
-    return (yesScore / totalScore) * 100;
-  };
+const CourtRoom = () => {
+    const canvasRef = useRef(null);
+    const engineRef = useRef(null);
 
-  const percentage = calculateVotePercentages();
+    // Initialize game engine
+    useEffect(() => {
+        if (!canvasRef.current) return;
 
-  return (
-    <div className="relative h-full bg-gray-900">
-      {/* Background Image */}
-      <div 
-        className="absolute inset-0 w-full h-full bg-center bg-cover bg-no-repeat"
-        style={{
-          backgroundImage: `url(${bgImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-        }}
-      />
+        const initializeGame = () => {
+            // Set canvas size
+            canvasRef.current.width = POSITIONS.CANVAS_WIDTH;
+            canvasRef.current.height = POSITIONS.CANVAS_HEIGHT;
 
-      {/* Character Sprite */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 z-[5]">
-        <img 
-          src={characterSprite}
-          alt="Character"
-          className="w-full h-full object-cover"
-          style={{
-            imageRendering: 'pixelated',
-            transform: 'scale(1.75)'
-          }}
-        />
-      </div>
+            const engine = new GameEngine(canvasRef.current);
+            const scene = new CourtroomScene(engine);
+            engine.setScene(scene);
+            scene.initialize();
 
-      {/* Inclination Bar Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-gray-900/90 py-1 px-2 backdrop-blur-sm">
-        <div className="flex items-center gap-1.5">
-          <div className="text-green-400 text-[10px] font-['Source_Code_Pro',monospace]">YES</div>
-          <div className="flex-1 h-1 bg-gray-800 overflow-hidden relative">
-            <div 
-              className="absolute inset-y-0 left-0 bg-green-500 transition-all duration-500"
-              style={{ width: `${percentage}%` }}
-            />
-            <div 
-              className="absolute inset-y-0 right-0 bg-red-500 transition-all duration-500"
-              style={{ width: `${100 - percentage}%`, left: `${percentage}%` }}
-            />
-          </div>
-          <div className="text-red-400 text-[10px] font-['Source_Code_Pro',monospace]">NO</div>
+            engineRef.current = engine;
+            return engine;
+        };
+
+        const setupSprites = (engine) => {
+            // Calculate positions for jurors
+            const totalWidth = SPRITE_WIDTH * 7;
+            const startX = POSITIONS.CENTER.x - (totalWidth / 2);
+            const spacing = SPRITE_WIDTH * 1.75;
+
+            // Create and position judge
+            const judge = new JudgeSprite(
+                POSITIONS.CENTER.x - (SPRITE_WIDTH/2),
+                POSITIONS.CENTER.y - SPRITE_HEIGHT * 2
+            );
+            engine.sprites.set('judge', judge);
+
+            // Create and position jurors
+            JUROR_CONFIG.forEach((juror) => {
+                const sprite = new JurorSprite(
+                    juror.id,
+                    startX + (spacing * juror.order),
+                    POSITIONS.CENTER.y - (SPRITE_HEIGHT/2),
+                    juror.character
+                );
+                engine.sprites.set(juror.id, sprite);
+            });
+        };
+
+        const engine = initializeGame();
+        setupSprites(engine);
+        engine.start();
+
+        return () => engine.stop();
+    }, []);
+
+    const handleVote = (vote) => {
+        if (!engineRef.current) return;
+
+        JUROR_CONFIG.forEach((juror, index) => {
+            setTimeout(() => {
+                engineRef.current.handleJurorVote(juror.id, vote);
+            }, index * VOTE_DELAY);
+        });
+    };
+
+    const handleJudgeCommand = (command) => {
+        if (!engineRef.current) return;
+        engineRef.current.handleJudgeSpeak(command);
+    };
+
+    return (
+        <div className="relative w-full h-screen bg-court-brown flex items-center justify-center">
+            <div className="relative w-[800px] h-[600px]">
+                <canvas
+                    ref={canvasRef}
+                    className="w-full h-full"
+                    style={{ imageRendering: 'pixelated' }}
+                />
+            </div>
+
+              
+           
+
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default CourtRoom;
