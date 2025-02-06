@@ -73,6 +73,9 @@ const App = () => {
 
   const [handleJurorVote, setHandleJurorVote] = useState(null);
 
+  // Add AI voting trends state
+  const [aiVotingTrends, setAiVotingTrends] = useState([]);
+
   // Memoize the callback
   const onJurorVote = useCallback((handleVote) => {
     setHandleJurorVote(() => handleVote);
@@ -364,6 +367,18 @@ const App = () => {
           }
         });
 
+        // Update AI voting trends
+        setAiVotingTrends(prevTrends => [
+          ...prevTrends,
+          {
+            time: timestamp,
+            votes: Object.values(newOpinions).reduce((acc, curr) => {
+              acc[curr.result] = (acc[curr.result] || 0) + 1;
+              return acc;
+            }, {})
+          }
+        ]);
+
         setJurorOpinions(prevOpinions => ({
           ...prevOpinions,
           ...newOpinions
@@ -436,6 +451,7 @@ const App = () => {
                       replyTo: msg.replyTo ? messages.find(m => m.id === msg.replyTo.id) : null
                     }))}
                     debateSides={debateSides}
+                    aiVotingTrends={aiVotingTrends}
                   />
                 </div>
               </div>

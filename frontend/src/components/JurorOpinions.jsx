@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import UserAvatar from './UserAvatar';
 import VotingTrends from './VotingTrends';
+import AIVotingTrends from './AIVotingTrends';
 
 const JurorOpinions = ({ 
   jurorOpinions = {}, 
@@ -8,7 +9,8 @@ const JurorOpinions = ({
   setIsJurorOpinionsExpanded,
   votingTrends,
   messages,
-  debateSides
+  debateSides,
+  aiVotingTrends
 }) => {
   const [currentView, setCurrentView] = useState('opinions'); // 'opinions' or 'trends'
 
@@ -96,7 +98,14 @@ const JurorOpinions = ({
             )}
           </div>
         ) : (
-          <VotingTrends messages={messages} debateSides={debateSides} votingData={votingTrends} />
+          <div className="space-y-4">
+            <VotingTrends 
+              messages={messages} 
+              debateSides={debateSides} 
+              votingData={votingTrends} 
+            />
+            <AIVotingTrends aiVotingTrends={aiVotingTrends} />
+          </div>
         )}
       </div>
     </div>
