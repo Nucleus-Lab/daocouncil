@@ -49,34 +49,33 @@ const CourtRoom = () => {
         const setupSprites = (engine) => {
             // Calculate positions for jurors
             const totalWidth = SPRITE_WIDTH * 7;
-            // Move starting X position more to the left by adding an offset
-            const leftOffset = SPRITE_WIDTH * 0.7; // Adjust this value to move more/less left
+            const leftOffset = SPRITE_WIDTH * - 0.7;
             const startX = (POSITIONS.CENTER.x - (totalWidth / 2)) - leftOffset;
-            const spacing = SPRITE_WIDTH * 1.85; // Keep the same spacing
+            const spacing = SPRITE_WIDTH * 1.15;
             
-            // Adjust vertical positions
-            const judgeY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 0.5;  // Keep judge position
-            const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 3; // Keep jurors vertical position
+            // Adjust vertical positions for taller sprites
+            const judgeY = POSITIONS.CENTER.y - SPRITE_HEIGHT * 0.4;  // Adjusted for taller sprites
+            const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 1.2; // Adjusted for taller sprites
 
             // Create and position judge
             const judge = new JudgeSprite(
-                POSITIONS.CENTER.x - (SPRITE_WIDTH/2),  // Keep judge centered
+                POSITIONS.CENTER.x - (SPRITE_WIDTH/2),
                 judgeY
             );
             engine.sprites.set('judge', judge);
 
-            // Create and position jurors with same spacing but starting more left
+            // Create and position jurors
             JUROR_CONFIG.forEach((juror) => {
                 const sprite = new JurorSprite(
                     juror.id,
-                    startX + (spacing * juror.order),  // More left starting position, same spacing
+                    startX + (spacing * juror.order),
                     jurorY,
                     juror.character
                 );
                 engine.sprites.set(juror.id, sprite);
             });
 
-            logger.debug('Sprites positioned - Judge at Y:', judgeY, 'Jurors at Y:', jurorY, 'Jurors start X:', startX);
+            logger.debug('Sprites positioned with new scale - Judge at Y:', judgeY, 'Jurors at Y:', jurorY);
         };
 
         const engine = initializeGame();
