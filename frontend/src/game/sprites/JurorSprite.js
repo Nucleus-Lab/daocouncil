@@ -43,10 +43,10 @@ class JurorSprite {
         
         logger.info(`Created ${characterId} juror at position (${initialX}, ${initialY})`);
 
-        // Increase the height of the speech bubble
-        this.speechBubbleHeight = 60; // Increase from default
+        // Increase the height of the speech bubble even more
+        this.speechBubbleHeight = 80; // Increased from 60 to 80
         this.speechBubbleWidth = 120; // Keep width the same
-        this.speechBubbleY = initialY - this.speechBubbleHeight - 10; // Adjust Y position for taller bubble
+        this.speechBubbleY = initialY - this.speechBubbleHeight - 10;
     }
 
     speak(text) {
@@ -129,7 +129,7 @@ class JurorSprite {
 
     drawSpeechBubble(ctx) {
         const bubbleWidth = 48;
-        const bubbleHeight = 32;
+        const bubbleHeight = 52;  // Increased from 32 to 52
         const pixelSize = 2;
         
         // Position bubble above sprite
