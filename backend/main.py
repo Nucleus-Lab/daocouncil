@@ -21,14 +21,6 @@ from backend.agents.juror import Juror
 
 logger = logging.getLogger()
 
-# 创建所有表
-# postgres database
-DATABASE_URL = os.getenv("DATABASE_URL")
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-Base.metadata.create_all(bind=engine)
-
 # dspy
 model = os.getenv("MODEL")
 lm = dspy.LM(model=model, api_key=os.getenv("OPENAI_API_KEY"), api_base=os.getenv("OPENAI_BASE_URL"))
