@@ -38,7 +38,13 @@ def read_root():
 def post_msg(request: ChatMessage):
     db = SessionLocal()
     try:
-        new_message = create_chat_message(db=db, discussion_id=request.discussion_id, user_address=request.user_address, message=request.message)
+        new_message = create_chat_message(
+            db=db,
+            discussion_id=request.discussion_id,
+            user_address=request.user_address,
+            message=request.message,
+            stance=request.stance if hasattr(request, 'stance') else None
+        )
         db.commit()
         return new_message
     except Exception as e:

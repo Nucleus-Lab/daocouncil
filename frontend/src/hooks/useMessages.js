@@ -1,31 +1,7 @@
 import { useState } from 'react';
 
 export const useMessages = (walletAddress, username) => {
-  const [messages, setMessages] = useState([]);
-
   const addMessage = async (text, stance, round, replyTo = null, debateInfo = null) => {
-    // 检查用户是否是创建者
-    let displayUsername = username;
-    if (debateInfo && debateInfo.creator_address === walletAddress) {
-      displayUsername = 'Moderator';
-    }
-
-    const newMessage = {
-      id: Date.now(),
-      text,
-      sender: walletAddress,
-      username: displayUsername || 'Anonymous',
-      timestamp: new Date().toLocaleTimeString(),
-      stance,
-      round,
-      replyTo: replyTo ? {
-        id: replyTo.id,
-        text: replyTo.text,
-        sender: replyTo.sender,
-        username: replyTo.username
-      } : null
-    };
-
     try {
       if (!debateInfo) {
         throw new Error('Debate information is missing');
@@ -47,7 +23,8 @@ export const useMessages = (walletAddress, username) => {
         body: JSON.stringify({
           discussion_id: discussionId,
           user_address: walletAddress,
-          message: text
+          message: text,
+          stance: stance || null  // 添加 stance，如果没有则为 null
         }),
       });
 
@@ -56,7 +33,7 @@ export const useMessages = (walletAddress, username) => {
         throw new Error(errorData.detail || 'Failed to send message');
       }
 
-      setMessages(prevMessages => [...prevMessages, newMessage]);
+      return await response.json();
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;
@@ -69,25 +46,7 @@ export const useMessages = (walletAddress, username) => {
       if (!response.ok) {
         throw new Error('Failed to load messages');
       }
-
-      const data = await response.json();
-      
-      // 获取辩论信息以检查创建者
-      const debateResponse = await fetch(`http://localhost:8000/debate/${discussion_id}`);
-      const debateInfo = await debateResponse.json();
-
-      // 转换消息格式
-      const formattedMessages = data.map(msg => ({
-        id: msg.id,
-        text: msg.message,
-        sender: msg.user_address,
-        username: debateInfo.creator_address === msg.user_address ? 'Moderator' : (msg.username || 'Anonymous'),
-        timestamp: new Date(msg.timestamp).toLocaleTimeString(),
-        stance: msg.stance,
-        round: msg.round
-      }));
-
-      setMessages(formattedMessages);
+      return await response.json();
     } catch (error) {
       console.error('Error loading messages:', error);
       throw error;
@@ -95,9 +54,7 @@ export const useMessages = (walletAddress, username) => {
   };
 
   return {
-    messages,
     addMessage,
-    loadMessages,
-    setMessages
+    loadMessages
   };
 };

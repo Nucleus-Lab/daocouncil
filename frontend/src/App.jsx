@@ -30,8 +30,14 @@ const App = () => {
     { id: '1', name: 'Side 1' },
     { id: '2', name: 'Side 2' }
   ]);
-  const [currentDebateInfo, setCurrentDebateInfo] = useState({}); // 添加这一行
+  const [currentDebateInfo, setCurrentDebateInfo] = useState({}); 
+  const [messages, setMessages] = useState([]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [userStance, setUserStance] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
   const demoWalletAddress = "0x1234...5678";
+
+  const { addMessage, loadMessages } = useMessages(walletAddress, username);
 
   useEffect(() => {
     if (ready && authenticated && user?.wallet?.address) {
@@ -44,13 +50,6 @@ const App = () => {
   }, [ready, authenticated, user]);
 
   // Existing state and hooks
-  const [currentMessage, setCurrentMessage] = useState('');
-  const {
-    messages,
-    setMessages,
-    addMessage
-  } = useMessages(walletAddress, username);
-
   const {
     jurorOpinions,
     setJurorOpinions,
@@ -59,8 +58,6 @@ const App = () => {
   } = useJurorOpinions();
 
   const [currentRound, setCurrentRound] = useState(1);
-  const [userStance, setUserStance] = useState('');
-  const [replyingTo, setReplyingTo] = useState(null);
 
   // Add voting trends data
   const [votingTrends, setVotingTrends] = useState([
@@ -210,17 +207,38 @@ const App = () => {
 
   // Update voting trends when new messages are added
   useEffect(() => {
-    if (messages.length > 1) { // Skip the first system message
-      const latestMessage = messages[messages.length - 1];
-      if (latestMessage.stance) {
-        const newDataPoint = {
-          time: latestMessage.timestamp,
-          yes: votingTrends[votingTrends.length - 1].yes + (latestMessage.stance === 'yes' ? 1 : 0),
-          no: votingTrends[votingTrends.length - 1].no + (latestMessage.stance === 'no' ? 1 : 0)
-        };
-        setVotingTrends([...votingTrends, newDataPoint]);
+    // 初始化或更新投票趋势
+    const updateVotingTrends = () => {
+      if (!messages.length) return;
+
+      // 按时间排序消息
+      const sortedMessages = [...messages].sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+      );
+
+      // 计算每个时间点的累计投票
+      const newTrends = [];
+      let yesCount = 0;
+      let noCount = 0;
+
+      sortedMessages.forEach(msg => {
+        if (msg.stance === 'yes') yesCount++;
+        if (msg.stance === 'no') noCount++;
+        
+        newTrends.push({
+          time: msg.timestamp,
+          yes: yesCount,
+          no: noCount
+        });
+      });
+
+      // 更新投票趋势
+      if (newTrends.length > 0) {
+        setVotingTrends(newTrends);
       }
-    }
+    };
+
+    updateVotingTrends();
   }, [messages]);
 
   const handleConnectWallet = async () => {
@@ -232,35 +250,97 @@ const App = () => {
   };
 
   const handleCreateDebateSubmit = async (debateInfo) => {
-    // 设置初始消息
-    const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
-    await addMessage(initialMessage, null, 0, null, debateInfo);
-    
-    setCurrentDebateId(debateInfo.discussion_id.toString());
-    setDebateSides(debateInfo.sides.map((side, index) => ({
-      id: (index + 1).toString(),
-      name: side
-    })));
-    setCurrentView('debate');
+    try {
+      // 先设置辩论信息
+      setCurrentDebateId(debateInfo.discussion_id.toString());
+      setCurrentDebateInfo(debateInfo);  
+      setDebateSides(debateInfo.sides.map((side, index) => ({
+        id: (index + 1).toString(),
+        name: side
+      })));
+      
+      // 设置初始消息
+      const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
+      await addMessage(initialMessage, null, 0, null, debateInfo);
+
+      // 加载历史消息
+      const response = await fetch(`http://localhost:8000/msg/${debateInfo.discussion_id}`);
+      if (!response.ok) {
+        throw new Error('Failed to load messages');
+      }
+      const messages = await response.json();
+      let messageCounter = 0; // 添加计数器以确保唯一ID
+      setMessages(messages.map(msg => ({
+        id: msg.id || `${Date.now()}-${messageCounter++}`, // 使用计数器确保唯一性
+        text: msg.message,
+        sender: msg.user_address,
+        username: msg.username || 'Anonymous',
+        timestamp: new Date(msg.timestamp).toLocaleTimeString(),
+        stance: msg.stance || 'neutral',
+        round: msg.round || 1
+      })));
+
+      setCurrentView('debate');
+    } catch (error) {
+      console.error('Error in handleCreateDebateSubmit:', error);
+    }
   };
 
-  const handleJoinDebate = ({ debateId, username: chosenUsername, debateInfo }) => {
+  const handleJoinDebate = async ({ debateId, username: chosenUsername, debateInfo }) => {
     setCurrentDebateId(debateId);
     setUsername(chosenUsername);
-    setCurrentDebateInfo(debateInfo);  
-    // In a real app, you would fetch the debate data including sides here
-    initializeDemoContent();
+    setCurrentDebateInfo(debateInfo);
+
+    // 加载历史消息
+    try {
+      const response = await fetch(`http://localhost:8000/msg/${debateId}`);
+      if (!response.ok) {
+        throw new Error('Failed to load messages');
+      }
+      const messages = await response.json();
+      let messageCounter = 0; // 添加计数器以确保唯一ID
+      setMessages(messages.map(msg => ({
+        id: msg.id || `${Date.now()}-${messageCounter++}`, // 使用计数器确保唯一性
+        text: msg.message,
+        sender: msg.user_address,
+        username: msg.username || 'Anonymous',
+        timestamp: new Date(msg.timestamp).toLocaleTimeString(),
+        stance: msg.stance || 'neutral',
+        round: msg.round || 1
+      })));
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+
     setCurrentView('debate');
   };
 
-  const handleSubmitMessage = (messageData) => {
-    addMessage(
-      messageData.text,
-      messageData.stance,
-      currentRound,
-      messageData.replyTo,
-      currentDebateInfo  
-    );
+  const handleSubmitMessage = async (messageData) => {
+    try {
+      const response = await addMessage(
+        messageData.text,
+        messageData.stance,
+        currentRound,
+        messageData.replyTo,
+        currentDebateInfo
+      );
+
+      // 添加新消息到列表
+      const newMessage = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // 使用时间戳加随机字符串确保唯一性
+        text: messageData.text,
+        sender: walletAddress,
+        username: username,
+        timestamp: new Date().toLocaleTimeString(),
+        stance: messageData.stance,
+        round: currentRound,
+        replyTo: messageData.replyTo
+      };
+      
+      setMessages(prevMessages => [...prevMessages, newMessage]);
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
   };
 
   // Render different views based on currentView state

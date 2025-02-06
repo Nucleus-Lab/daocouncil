@@ -22,18 +22,10 @@ ChartJS.register(
 );
 
 const VotingTrends = ({ messages = [], debateSides = [{ id: '1', name: 'Side 1' }, { id: '2', name: 'Side 2' }] }) => {
-  // 如果没有消息，显示空状态
-  if (!messages || messages.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow-sm p-4 h-[300px] flex items-center justify-center">
-        <p className="text-gray-400">No messages yet</p>
-      </div>
-    );
-  }
-
   // 计算每个时间点每个立场的消息数量
   const calculateTrends = () => {
     const trends = {};
+    // 为每个立场初始化计数器
     debateSides.forEach(side => {
       trends[side.id] = new Map();
     });
@@ -43,16 +35,28 @@ const VotingTrends = ({ messages = [], debateSides = [{ id: '1', name: 'Side 1' 
       new Date(a.timestamp) - new Date(b.timestamp)
     );
 
+    // 为每个立场计算累计值
     sortedMessages.forEach(message => {
       if (message.stance) {
         const time = message.timestamp;
-        const currentCount = trends[message.stance].get(time) || 0;
-        trends[message.stance].set(time, currentCount + 1);
+        const currentCount = trends[message.stance]?.get(time) || 0;
+        if (trends[message.stance]) {
+          trends[message.stance].set(time, currentCount + 1);
+        }
       }
     });
 
     return trends;
   };
+
+  // 如果没有消息，显示空状态
+  if (!messages || messages.length === 0) {
+    return (
+      <div className="bg-gradient-to-br from-[#fdf6e3] to-[#f5e6d3] rounded-lg shadow-sm p-4 h-[300px] flex items-center justify-center">
+        <p className="text-gray-400">No messages yet</p>
+      </div>
+    );
+  }
 
   const trends = calculateTrends();
 
@@ -68,21 +72,22 @@ const VotingTrends = ({ messages = [], debateSides = [{ id: '1', name: 'Side 1' 
       const cumulativeData = timePoints.map(time => {
         const prevIndex = timePoints.indexOf(time);
         const prevTotal = prevIndex > 0 ? 
-          [...trends[side.id].entries()]
+          [...(trends[side.id]?.entries() || [])]
             .filter((_, i) => i < prevIndex)
             .reduce((sum, [_, count]) => sum + count, 0) : 0;
-        return prevTotal + (trends[side.id].get(time) || 0);
+        return prevTotal + (trends[side.id]?.get(time) || 0);
       });
+
+      // 为每个立场生成不同的颜色
+      const hue = (index * 137) % 360; // 使用黄金角度来生成分散的颜色
+      const borderColor = `hsl(${hue}, 70%, 50%)`;
+      const backgroundColor = `hsla(${hue}, 70%, 50%, 0.1)`;
 
       return {
         label: side.name,
         data: cumulativeData,
-        borderColor: index === 0 ? 'rgb(52, 211, 153)' : 
-                    index === 1 ? 'rgb(251, 113, 133)' : 
-                    `hsl(${(index * 137) % 360}, 70%, 50%)`,
-        backgroundColor: index === 0 ? 'rgba(52, 211, 153, 0.5)' : 
-                        index === 1 ? 'rgba(251, 113, 133, 0.5)' : 
-                        `hsla(${(index * 137) % 360}, 70%, 50%, 0.5)`,
+        borderColor,
+        backgroundColor,
         tension: 0.4,
         fill: true
       };
@@ -98,7 +103,7 @@ const VotingTrends = ({ messages = [], debateSides = [{ id: '1', name: 'Side 1' 
         labels: {
           usePointStyle: true,
           padding: 15,
-          color: '#4a3223', // 温暖的棕色
+          color: '#4a3223',
           font: {
             family: "'Inter', sans-serif",
             size: 12
@@ -108,7 +113,7 @@ const VotingTrends = ({ messages = [], debateSides = [{ id: '1', name: 'Side 1' 
       title: {
         display: true,
         text: 'Debate Engagement Trends',
-        color: '#2c1810', // 深棕色
+        color: '#2c1810',
         font: {
           family: "'Inter', sans-serif",
           size: 14,
@@ -122,9 +127,9 @@ const VotingTrends = ({ messages = [], debateSides = [{ id: '1', name: 'Side 1' 
       tooltip: {
         mode: 'index',
         intersect: false,
-        backgroundColor: 'rgba(44, 24, 16, 0.95)', // 深棕色背景
-        titleColor: '#ffd294', // 温暖的橙色
-        bodyColor: '#f0c987', // 浅橙色
+        backgroundColor: 'rgba(44, 24, 16, 0.95)',
+        titleColor: '#ffd294',
+        bodyColor: '#f0c987',
         borderColor: '#6b4423',
         borderWidth: 1,
         padding: 10,
@@ -142,38 +147,26 @@ const VotingTrends = ({ messages = [], debateSides = [{ id: '1', name: 'Side 1' 
         }
       }
     },
-    interaction: {
-      mode: 'nearest',
-      axis: 'x',
-      intersect: false
-    },
     scales: {
       x: {
         grid: {
           display: false
         },
         ticks: {
-          color: '#4a3223', // 温暖的棕色
+          color: '#4a3223',
           font: {
             family: "'Inter', sans-serif",
             size: 12
-          },
-          callback: function(value, index) {
-            // 格式化时间显示
-            const time = this.getLabelForValue(value);
-            return time.split(' ')[0]; // 只显示时间部分
-          },
-          maxRotation: 45,
-          minRotation: 45
+          }
         }
       },
       y: {
         beginAtZero: true,
         grid: {
-          color: 'rgba(107, 68, 35, 0.1)' // 淡棕色网格
+          color: 'rgba(107, 68, 35, 0.1)'
         },
         ticks: {
-          color: '#4a3223', // 温暖的棕色
+          color: '#4a3223',
           font: {
             family: "'Inter', sans-serif",
             size: 12
