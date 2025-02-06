@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, List
-
+from pydantic import BaseModel
 @dataclass
 class ChatMessage:
     discussion_id: int
@@ -26,3 +26,7 @@ class Debate:
     funding: float
     action: str
     creator_address: str
+    
+class Side(BaseModel):
+    id: str
+    description: str

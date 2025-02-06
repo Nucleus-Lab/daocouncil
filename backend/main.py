@@ -6,18 +6,33 @@ import logging
 from typing import List
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import dspy
 
+# custom modules
 from backend.database import SessionLocal, Base, engine
-from backend.data_structure import ChatMessage, User, Debate
+from backend.data_structure import ChatMessage, User, Debate, Side
 from backend.database.chat_message import create_chat_message, get_chat_history
 from backend.database.user import create_user, get_user
-from backend.database.juror import create_juror, get_jurors, get_all_juror_results
+from backend.database.juror import create_juror, get_jurors, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate
+
+
+from backend.agents.juror import Juror
 
 logger = logging.getLogger()
 
 # 创建所有表
+# postgres database
+DATABASE_URL = os.getenv("DATABASE_URL")
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 Base.metadata.create_all(bind=engine)
+
+# dspy
+model = os.getenv("MODEL")
+lm = dspy.LM(model=model, api_key=os.getenv("OPENAI_API_KEY"), api_base=os.getenv("OPENAI_BASE_URL"))
+dspy.configure(lm=lm)
 
 # fastapi app
 app = FastAPI()
@@ -34,6 +49,7 @@ app.add_middleware(
 def read_root():
     return {"message": "Hello, World!"}
 
+
 @app.post("/msg")
 def post_msg(request: ChatMessage):
     db = SessionLocal()
@@ -49,11 +65,36 @@ def post_msg(request: ChatMessage):
             stance=request.stance  # 直接使用 request.stance
         )
         db.commit()
-        return new_message
+        
+        debate_info = get_debate(db, request.discussion_id)
+        past_messages = get_chat_history(db, request.discussion_id)
+        jurors = get_jurors(db, request.discussion_id)
+        
+        conv_history = ""
+        for msg in past_messages:
+            user = get_user(db, msg.user_address)
+            conv_history += f"{user.username}: {msg.message}\n"
+        
+        sides = []
+        for idx, side in enumerate(debate_info.sides):
+            sides.append(Side(id=str(idx), description=side))
+        
+        results = {}
+        for juror_db in jurors:
+            juror = Juror(persona=juror_db.persona)
+            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
+            results[juror_db.juror_id] = {
+                "result": result,
+                "reasoning": reasoning
+            }
+            create_juror_result(db=db, discussion_id=request.discussion_id, latest_msg_id=new_message.id, juror_id=juror_db.juror_id, result=result, reasoning=reasoning)
+            
+        return results
+    
     except Exception as e:
         db.rollback()
         logger.error(f"Error creating message: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error creating message")
+        raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
     finally:
         db.close()
 

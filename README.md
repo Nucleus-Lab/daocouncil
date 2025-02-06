@@ -44,7 +44,7 @@ npm run dev
 
 ```
 pip install cdp-langchain
-cd judge-agent/dev
+cd judge-agent/cdp-agentkit
 cp .env.example .env  # fill in the API keys
 python test_agentkit.py
 ```

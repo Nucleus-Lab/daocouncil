@@ -1,0 +1,3 @@
+Wallet Created Successfully!
+Wallet ID: smpt6k1b0n20cyt1v5yze72t
+Wallet Address: 0xd622a833e2c5e034aB64FB53535Ceb2CfBd0FF15
