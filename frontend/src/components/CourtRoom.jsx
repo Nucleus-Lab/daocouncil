@@ -49,13 +49,13 @@ const CourtRoom = () => {
         const setupSprites = (engine) => {
             // Calculate positions for jurors
             const totalWidth = SPRITE_WIDTH * 7;
-            const leftOffset = SPRITE_WIDTH * - 0.7;
+            const leftOffset = SPRITE_WIDTH * - 0.45;
             const startX = (POSITIONS.CENTER.x - (totalWidth / 2)) - leftOffset;
-            const spacing = SPRITE_WIDTH * 1.15;
+            const spacing = SPRITE_WIDTH * 1.28;
             
             // Adjust vertical positions for taller sprites
-            const judgeY = POSITIONS.CENTER.y - SPRITE_HEIGHT * 0.4;  // Adjusted for taller sprites
-            const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 1.2; // Adjusted for taller sprites
+            const judgeY = POSITIONS.CENTER.y - SPRITE_HEIGHT * 0.3;  // Adjusted for taller sprites
+            const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 1.5; // Adjusted for taller sprites
 
             // Create and position judge
             const judge = new JudgeSprite(
