@@ -49,13 +49,19 @@ const CourtRoom = () => {
         const setupSprites = (engine) => {
             // Calculate positions for jurors
             const totalWidth = SPRITE_WIDTH * 7;
-            const startX = POSITIONS.CENTER.x - (totalWidth / 2);
-            const spacing = SPRITE_WIDTH * 1.75;
+            const leftOffset = SPRITE_WIDTH * - 0.45;
+            const startX = (POSITIONS.CENTER.x - (totalWidth / 2)) - leftOffset;
+            const spacing = SPRITE_WIDTH * 1.28;
+            
+            // Adjust vertical positions for taller sprites
+            const judgeY = POSITIONS.CENTER.y - SPRITE_HEIGHT * 0.3;  // Adjusted for taller sprites
+            const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 1.5; // Adjusted for taller sprites
 
-            // Create and position judge
+            // Create and position judge - move left by adding an offset
+            const judgeXOffset = SPRITE_WIDTH * 0.075; // Adjust this value to move judge more/less left
             const judge = new JudgeSprite(
-                POSITIONS.CENTER.x - (SPRITE_WIDTH/2),
-                POSITIONS.CENTER.y - SPRITE_HEIGHT * 2
+                POSITIONS.CENTER.x - (SPRITE_WIDTH/2) - judgeXOffset, // Subtract offset to move left
+                judgeY
             );
             engine.sprites.set('judge', judge);
 
@@ -64,11 +70,13 @@ const CourtRoom = () => {
                 const sprite = new JurorSprite(
                     juror.id,
                     startX + (spacing * juror.order),
-                    POSITIONS.CENTER.y - (SPRITE_HEIGHT/2),
+                    jurorY,
                     juror.character
                 );
                 engine.sprites.set(juror.id, sprite);
             });
+
+            logger.debug('Sprites positioned with new scale - Judge at Y:', judgeY, 'Jurors at Y:', jurorY);
         };
 
         const engine = initializeGame();
