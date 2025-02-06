@@ -37,14 +37,8 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
   const data = {
     labels: timePoints,
     datasets: voteOptions.map((option, index) => {
-      // Calculate cumulative votes for each option
-      const cumulativeData = aiVotingTrends.map((trend, i) => {
-        const prevTotal = i > 0 ? 
-          aiVotingTrends
-            .slice(0, i)
-            .reduce((sum, t) => sum + (t.votes[option] || 0), 0) : 0;
-        return prevTotal + (trend.votes[option] || 0);
-      });
+      // Get instantaneous vote counts for each time point
+      const voteData = aiVotingTrends.map(trend => trend.votes[option] || 0);
 
       // Generate color for each option
       const hue = (index * 137) % 360;
@@ -52,8 +46,8 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
       const backgroundColor = `hsla(${hue}, 70%, 50%, 0.1)`;
 
       return {
-        label: `Option ${option}`,
-        data: cumulativeData,
+        label: `Side ${option}`,
+        data: voteData,
         borderColor,
         backgroundColor,
         tension: 0.4,
@@ -80,7 +74,7 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
       },
       title: {
         display: true,
-        text: 'AI Jurors Voting Trends',
+        text: 'AI Jurors Voting Distribution',
         color: '#2c1810',
         font: {
           family: "'Inter', sans-serif",
@@ -107,6 +101,11 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
         titleFont: {
           family: "'Inter', sans-serif",
           weight: 'medium'
+        },
+        callbacks: {
+          label: function(context) {
+            return `Side ${context.dataset.label}: ${context.parsed.y} votes`;
+          }
         }
       }
     },
@@ -134,7 +133,8 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
             family: "'Inter', sans-serif",
             size: 12
           },
-          stepSize: 1
+          stepSize: 1,
+          max: 5 // Since we have 5 jurors maximum
         }
       }
     }
