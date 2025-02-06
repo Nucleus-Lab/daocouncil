@@ -13,19 +13,23 @@ export const useMessages = (walletAddress, username) => {
         throw new Error('Invalid discussion ID');
       }
 
-      console.log('Sending message with discussion_id:', discussionId); // 调试日志
+      // 准备消息数据
+      const messageData = {
+        discussion_id: discussionId,
+        user_address: walletAddress,
+        message: text,
+        stance: stance === '' ? null : stance  // 明确处理空字符串的情况
+      };
+
+      // 调试日志
+      console.log('Sending message data:', messageData);
 
       const response = await fetch('http://localhost:8000/msg', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          discussion_id: discussionId,
-          user_address: walletAddress,
-          message: text,
-          stance: stance || null  // 添加 stance，如果没有则为 null
-        }),
+        body: JSON.stringify(messageData),
       });
 
       if (!response.ok) {
@@ -33,7 +37,9 @@ export const useMessages = (walletAddress, username) => {
         throw new Error(errorData.detail || 'Failed to send message');
       }
 
-      return await response.json();
+      const responseData = await response.json();
+      console.log('Server response:', responseData);  // 添加服务器响应日志
+      return responseData;
     } catch (error) {
       console.error('Error sending message:', error);
       throw error;

@@ -9,6 +9,7 @@ class ChatMessage:
     message: str
     username: Optional[str] = None
     timestamp: Optional[datetime] = None
+    stance: Optional[str] = None
 
 @dataclass
 class User:

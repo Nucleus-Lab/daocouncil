@@ -38,12 +38,15 @@ def read_root():
 def post_msg(request: ChatMessage):
     db = SessionLocal()
     try:
+        # 调试日志
+        logger.info(f"Received message request: {request}")
+        
         new_message = create_chat_message(
             db=db,
             discussion_id=request.discussion_id,
             user_address=request.user_address,
             message=request.message,
-            stance=request.stance if hasattr(request, 'stance') else None
+            stance=request.stance  # 直接使用 request.stance
         )
         db.commit()
         return new_message
@@ -68,7 +71,8 @@ def get_msg(discussion_id: int):
                 username=user.username,
                 user_address=user_address,
                 message=res.message,
-                timestamp=res.created_at
+                timestamp=res.created_at,
+                stance=res.stance  # 添加 stance 到返回的消息中
             ))
         return messages
     except Exception as e:
