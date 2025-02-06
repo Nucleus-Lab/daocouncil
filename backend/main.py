@@ -31,7 +31,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,50 +45,50 @@ def read_root():
 @app.post("/msg")
 def post_msg(request: ChatMessage):
     db = SessionLocal()
-    try:
-        # 调试日志
-        logger.info(f"Received message request: {request}")
-        
-        new_message = create_chat_message(
-            db=db,
-            discussion_id=request.discussion_id,
-            user_address=request.user_address,
-            message=request.message,
-            stance=request.stance  # 直接使用 request.stance
-        )
-        db.commit()
-        
-        debate_info = get_debate(db, request.discussion_id)
-        past_messages = get_chat_history(db, request.discussion_id)
-        jurors = get_jurors(db, request.discussion_id)
-        
-        conv_history = ""
-        for msg in past_messages:
-            user = get_user(db, msg.user_address)
-            conv_history += f"{user.username}: {msg.message}\n"
-        
-        sides = []
-        for idx, side in enumerate(debate_info.sides):
-            sides.append(Side(id=str(idx), description=side))
-        
-        results = {}
-        for juror_db in jurors:
-            juror = Juror(persona=juror_db.persona)
-            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
-            results[juror_db.juror_id] = {
-                "result": result,
-                "reasoning": reasoning
-            }
-            create_juror_result(db=db, discussion_id=request.discussion_id, latest_msg_id=new_message.id, juror_id=juror_db.juror_id, result=result, reasoning=reasoning)
-            
-        return results
+    # 调试日志
+    # try:
+    logger.info(f"Received message request: {request}")
     
-    except Exception as e:
-        db.rollback()
-        logger.error(f"Error creating message: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
-    finally:
-        db.close()
+    new_message = create_chat_message(
+        db=db,
+        discussion_id=request.discussion_id,
+        user_address=request.user_address,
+        message=request.message,
+        stance=request.stance  # 直接使用 request.stance
+    )
+    db.commit()
+    
+    debate_info = get_debate(db, request.discussion_id)
+    past_messages = get_chat_history(db, request.discussion_id)
+    jurors = get_jurors(db, request.discussion_id)
+    
+    conv_history = ""
+    for msg in past_messages:
+        user = get_user(db, msg.user_address)
+        conv_history += f"{user.username}: {msg.message}\n"
+    
+    sides = []
+    for idx, side in enumerate(debate_info.sides):
+        sides.append(Side(id=str(idx), description=side))
+    
+    results = {}
+    for juror_db in jurors:
+        juror = Juror(persona=juror_db.persona)
+        result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
+        results[juror_db.juror_id] = {
+            "result": result,
+            "reasoning": reasoning
+        }
+        create_juror_result(db=db, discussion_id=request.discussion_id, latest_msg_id=new_message.id, juror_id=juror_db.juror_id, result=result, reasoning=reasoning)
+            
+    return results
+    
+    # except Exception as e:
+    #     db.rollback()
+    #     logger.error(f"Error creating message: {str(e)}")
+    #     raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
+    # finally:
+    #     db.close()
 
 @app.get("/msg/{discussion_id}", response_model=List[ChatMessage])
 def get_msg(discussion_id: int):
