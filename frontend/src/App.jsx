@@ -351,15 +351,22 @@ const App = () => {
 
       // Handle juror opinions from server response
       if (response && typeof response === 'object') {
-        const newOpinions = {};
         const timestamp = new Date().toLocaleTimeString();
         
         Object.entries(response).forEach(([jurorId, data]) => {
-          newOpinions[jurorId] = {
+          const newOpinion = {
+            id: `${Date.now()}-${jurorId}`, // Add unique ID for each opinion
+            jurorId,
             reasoning: data.reasoning,
             result: data.result,
             timestamp: timestamp
           };
+
+          // Append new opinion instead of replacing
+          setJurorOpinions(prevOpinions => ({
+            ...prevOpinions,
+            [newOpinion.id]: newOpinion
+          }));
 
           // Trigger voting animation for the specific juror
           if (handleJurorVote) {
@@ -372,19 +379,12 @@ const App = () => {
           ...prevTrends,
           {
             time: timestamp,
-            votes: Object.values(newOpinions).reduce((acc, curr) => {
+            votes: Object.values(response).reduce((acc, curr) => {
               acc[curr.result] = (acc[curr.result] || 0) + 1;
               return acc;
             }, {})
           }
         ]);
-
-        setJurorOpinions(prevOpinions => ({
-          ...prevOpinions,
-          ...newOpinions
-        }));
-
-        console.log('Updated juror opinions:', newOpinions);
       }
 
     } catch (error) {

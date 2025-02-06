@@ -14,6 +14,10 @@ const JurorOpinions = ({
 }) => {
   const [currentView, setCurrentView] = useState('opinions'); // 'opinions' or 'trends'
 
+  // Sort opinions by timestamp
+  const sortedOpinions = Object.values(jurorOpinions)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
   return (
     <div className={`h-full font-['Source_Code_Pro','IBM_Plex_Mono',monospace] antialiased ${
       isJurorOpinionsExpanded 
@@ -71,13 +75,13 @@ const JurorOpinions = ({
       <div className={`flex-1 overflow-y-auto min-h-0 pr-1.5 ${isJurorOpinionsExpanded ? 'p-2' : ''}`}>
         {currentView === 'opinions' ? (
           <div className="flex-1 overflow-y-auto min-h-0 space-y-2">
-            {Object.entries(jurorOpinions || {}).map(([jurorId, opinion]) => (
-              <div key={jurorId} className="p-3 bg-white/5 rounded">
+            {sortedOpinions.map((opinion) => (
+              <div key={opinion.id} className="p-3 bg-white/5 rounded">
                 <div className="flex items-start">
                   <div className="flex-1">
                     <div className="flex justify-between items-center">
                       <h3 className="text-amber-200/90 text-sm">
-                        Juror #{parseInt(jurorId) + 1}
+                        Juror #{parseInt(opinion.jurorId) + 1}
                       </h3>
                       <span className="text-amber-50/40 text-xs">
                         {opinion.timestamp}
@@ -91,7 +95,7 @@ const JurorOpinions = ({
                 </div>
               </div>
             ))}
-            {Object.keys(jurorOpinions || {}).length === 0 && (
+            {sortedOpinions.length === 0 && (
               <div className="text-amber-50/60 text-sm text-center p-4">
                 No juror opinions yet. Start the debate to see their thoughts.
               </div>
