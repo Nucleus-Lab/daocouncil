@@ -49,26 +49,34 @@ const CourtRoom = () => {
         const setupSprites = (engine) => {
             // Calculate positions for jurors
             const totalWidth = SPRITE_WIDTH * 7;
-            const startX = POSITIONS.CENTER.x - (totalWidth / 2);
-            const spacing = SPRITE_WIDTH * 1.75;
+            // Move starting X position more to the left by adding an offset
+            const leftOffset = SPRITE_WIDTH * 0.7; // Adjust this value to move more/less left
+            const startX = (POSITIONS.CENTER.x - (totalWidth / 2)) - leftOffset;
+            const spacing = SPRITE_WIDTH * 1.85; // Keep the same spacing
+            
+            // Adjust vertical positions
+            const judgeY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 0.5;  // Keep judge position
+            const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 3; // Keep jurors vertical position
 
             // Create and position judge
             const judge = new JudgeSprite(
-                POSITIONS.CENTER.x - (SPRITE_WIDTH/2),
-                POSITIONS.CENTER.y - SPRITE_HEIGHT * 2
+                POSITIONS.CENTER.x - (SPRITE_WIDTH/2),  // Keep judge centered
+                judgeY
             );
             engine.sprites.set('judge', judge);
 
-            // Create and position jurors
+            // Create and position jurors with same spacing but starting more left
             JUROR_CONFIG.forEach((juror) => {
                 const sprite = new JurorSprite(
                     juror.id,
-                    startX + (spacing * juror.order),
-                    POSITIONS.CENTER.y - (SPRITE_HEIGHT/2),
+                    startX + (spacing * juror.order),  // More left starting position, same spacing
+                    jurorY,
                     juror.character
                 );
                 engine.sprites.set(juror.id, sprite);
             });
+
+            logger.debug('Sprites positioned - Judge at Y:', judgeY, 'Jurors at Y:', jurorY, 'Jurors start X:', startX);
         };
 
         const engine = initializeGame();
