@@ -1,7 +1,7 @@
 import os
 from datetime import datetime
 from typing import List
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, UniqueConstraint
+from sqlalchemy import create_engine, Column, BigInteger, Integer, String, DateTime, UniqueConstraint
 from sqlalchemy.ext.declarative import declarative_base
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -14,7 +14,7 @@ class JurorDB(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     juror_id = Column(Integer, index=True)
-    discussion_id = Column(Integer, index=True)
+    discussion_id = Column(BigInteger, index=True)  # 改为 BigInteger
     persona = Column(String)
     __table_args__ = (
         UniqueConstraint('juror_id', 'discussion_id', name='unique_juror_discussion'),
@@ -25,7 +25,7 @@ class JurorResultDB(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     juror_id = Column(Integer, index=True)
-    discussion_id = Column(Integer, index=True)
+    discussion_id = Column(BigInteger, index=True)  # 改为 BigInteger
     latest_msg_id = Column(Integer, index=True)
     result = Column(String)
     reasoning = Column(String)
@@ -39,10 +39,8 @@ def create_juror(db, discussion_id: int, juror_id: int, persona: str):
         persona=persona,
     )
     db.add(new_juror)
-    db.commit()
-    db.refresh(new_juror)
+    db.flush()  # 检查约束条件
     return new_juror
-
 
 def get_jurors(db, discussion_id: int) -> List[JurorDB]:
     jurors = db.query(JurorDB).filter(JurorDB.discussion_id == discussion_id).all()

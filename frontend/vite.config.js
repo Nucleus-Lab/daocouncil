@@ -11,5 +11,16 @@ export default defineConfig({
     hmr: {
       overlay: true
     }
+  },
+  resolve: {
+    alias: {
+      process: "process/browser",
+      stream: "stream-browserify",
+      util: "util"
+    }
+  },
+  define: {
+    'process.env': {},
+    global: {}
   }
 })

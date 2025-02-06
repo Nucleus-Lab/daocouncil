@@ -16,7 +16,9 @@ A modern web application for decentralized debate and decision-making.
 ```
 frontend/
 ├── src/
-│   ├── assets/           # Static assets (images, icons)
+│   ├── assets/           # Static assets (images, backgrounds)
+│   │   ├── bg.jpg              # Courtroom background
+│   │   └── character.png       # Character sprite
 │   ├── components/       # React components
 │   │   ├── CourtRoom.jsx       # Courtroom visualization
 │   │   ├── CreateDebateForm.jsx # New debate creation form
@@ -25,8 +27,11 @@ frontend/
 │   │   ├── JurorOpinions.jsx   # AI Jurors' opinions display
 │   │   ├── Messages.jsx        # Debate chat interface
 │   │   ├── UserAvatar.jsx      # User avatar component
+│   │   ├── VotingTrends.jsx    # Voting trends visualization
 │   │   └── WelcomePage.jsx     # Welcome/landing page
-│   ├── constants/        # Application constants
+│   ├── config/          # Configuration files
+│   │   └── privy-client.ts     # Privy wallet configuration
+│   ├── constants/       # Application constants
 │   │   └── avatarColors.js     # Avatar color definitions
 │   ├── hooks/           # Custom React hooks
 │   │   ├── useJurorOpinions.js # Juror opinions management
@@ -38,8 +43,11 @@ frontend/
 │   ├── index.css        # Base styles and Tailwind imports
 │   └── main.jsx         # Application entry point
 ├── public/             # Public assets
+├── .env.local          # Local environment variables
 ├── index.html          # HTML entry point
 ├── package.json        # Project dependencies
+├── postcss.config.js   # PostCSS configuration
+├── tailwind.config.js  # Tailwind CSS configuration
 └── README.md           # Project documentation
 ```
 

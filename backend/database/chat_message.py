@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 from sqlalchemy import create_engine, Column, Integer, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 
@@ -16,14 +16,16 @@ class ChatMessageDB(Base):
     discussion_id = Column(Integer, index=True)
     user_address = Column(String)
     message = Column(String)
+    stance = Column(String, nullable=True)  # 添加 stance 字段，允许为空
     created_at = Column(DateTime, default=datetime.utcnow)
 
 # Database operations for chat
-def create_chat_message(db, discussion_id: int, user_address: str, message: str):
+def create_chat_message(db, discussion_id: int, user_address: str, message: str, stance: Optional[str] = None):
     new_message = ChatMessageDB(
         discussion_id=discussion_id,
         user_address=user_address,
         message=message,
+        stance=stance,
         created_at=datetime.utcnow()
     )
     db.add(new_message)
