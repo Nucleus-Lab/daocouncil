@@ -57,9 +57,10 @@ const CourtRoom = () => {
             const judgeY = POSITIONS.CENTER.y - SPRITE_HEIGHT * 0.3;  // Adjusted for taller sprites
             const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 1.5; // Adjusted for taller sprites
 
-            // Create and position judge
+            // Create and position judge - move left by adding an offset
+            const judgeXOffset = SPRITE_WIDTH * 0.075; // Adjust this value to move judge more/less left
             const judge = new JudgeSprite(
-                POSITIONS.CENTER.x - (SPRITE_WIDTH/2),
+                POSITIONS.CENTER.x - (SPRITE_WIDTH/2) - judgeXOffset, // Subtract offset to move left
                 judgeY
             );
             engine.sprites.set('judge', judge);

@@ -7,16 +7,37 @@ import {
     SPRITE_SCALE 
 } from '../constants/dimensions';
 import JurorSprite from './JurorSprite';
+import { ASSETS } from '../constants/assets';
 
 class JudgeSprite extends JurorSprite {
     constructor(initialX, initialY) {
-        super('judge', initialX, initialY, 'M_03');
+        super('judge', initialX, initialY);
         this.zIndex = 2; // Higher z-index to render above jurors
 
-        // Increase the height of the speech bubble even more
+        // Override the sprite image with judge.png
+        this.sprite = new Image();
+        this.sprite.src = ASSETS.JUDGE;
+        
+        this.sprite.onload = () => {
+            logger.info('Judge sprite image loaded successfully');
+        };
+        this.sprite.onerror = (e) => {
+            logger.error('Failed to load judge sprite image:', e);
+        };
+
+        // Increase the height of the speech bubble
         this.speechBubbleHeight = 80; // Increased from 60 to 80
         this.speechBubbleWidth = 120; // Keep width the same
         this.speechBubbleY = initialY - this.speechBubbleHeight - 10;
+    }
+
+    // Override speak method to prevent jumping
+    speak(text) {
+        this.showSpeech = true;
+        this.speechText = text;
+        this.speechCounter = this.speechDuration;
+        // Remove jump animation trigger
+        logger.info(`Judge speaking: ${text}`);
     }
 
     // Override drawSpeechBubble to make it larger for longer text
