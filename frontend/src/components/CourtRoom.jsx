@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import GameEngine from '../game/engine/GameEngine';
 import CourtroomScene from '../game/scenes/CourtroomScene';
 import JurorSprite from '../game/sprites/JurorSprite';
@@ -7,10 +7,12 @@ import { POSITIONS, SPRITE_WIDTH, SPRITE_HEIGHT } from '../game/constants/dimens
 import { JUROR_CONFIG, JUDGE_COMMANDS, VOTE_DELAY } from '../game/constants/game';
 import { BUTTON_STYLES } from '../game/constants/ui';
 import { logger } from '../game/utils/logger';
+import { ASSETS } from '../game/constants/assets';  // Import ASSETS instead of direct image import
 
 const CourtRoom = () => {
     const canvasRef = useRef(null);
     const engineRef = useRef(null);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Initialize game engine
     useEffect(() => {
@@ -23,6 +25,20 @@ const CourtRoom = () => {
 
             const engine = new GameEngine(canvasRef.current);
             const scene = new CourtroomScene(engine);
+
+            // Load and set background image
+            const bgImage = new Image();
+            bgImage.src = ASSETS.BACKGROUND;  // Use path from ASSETS
+            bgImage.onload = () => {
+                scene.setBackground(bgImage);
+                setIsLoading(false);
+                logger.info('Background image loaded successfully');
+            };
+            bgImage.onerror = (error) => {
+                logger.error('Error loading background image:', error);
+                setIsLoading(false);
+            };
+
             engine.setScene(scene);
             scene.initialize();
 
@@ -78,18 +94,19 @@ const CourtRoom = () => {
     };
 
     return (
-        <div className="relative w-full h-screen bg-court-brown flex items-center justify-center">
-            <div className="relative w-[800px] h-[600px]">
+        <div className="relative w-full h-full bg-court-brown flex items-center justify-center">
+            {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-court-brown">
+                    <p className="text-white">Loading courtroom...</p>
+                </div>
+            )}
+            <div className="relative w-full h-full">
                 <canvas
                     ref={canvasRef}
                     className="w-full h-full"
                     style={{ imageRendering: 'pixelated' }}
                 />
             </div>
-
-              
-           
-
         </div>
     );
 };

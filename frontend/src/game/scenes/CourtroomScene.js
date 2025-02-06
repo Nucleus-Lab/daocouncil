@@ -1,17 +1,32 @@
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants/dimensions';
 import { logger } from '../utils/logger';
+import { ASSETS } from '../constants/assets';
 
 class CourtroomScene {
     constructor(engine) {
         this.engine = engine;
-        this.background = new Image();
-        this.background.src = '/src/assets/bg.jpg';
-        this.isLoaded = false;
+        this.background = null;
+    }
 
-        this.background.onload = () => {
-            this.isLoaded = true;
-            logger.info('Courtroom background loaded');
-        };
+    setBackground(image) {
+        this.background = image;
+        logger.info('Background image set');
+    }
+
+    draw(ctx) {
+        // Draw background first
+        if (this.background) {
+            ctx.drawImage(
+                this.background, 
+                0, 
+                0, 
+                this.engine.canvas.width, 
+                this.engine.canvas.height
+            );
+        }
+        
+        // Draw other sprites and elements
+        // ... rest of your drawing code
     }
 
     initialize() {
@@ -21,34 +36,38 @@ class CourtroomScene {
     }
 
     render(ctx) {
-        if (this.isLoaded) {
-            // Calculate scaling to fit the image while maintaining aspect ratio
-            const scale = Math.min(
-                CANVAS_WIDTH / this.background.width,
-                CANVAS_HEIGHT / this.background.height
-            );
-
-            // Calculate dimensions after scaling
-            const scaledWidth = this.background.width * scale;
-            const scaledHeight = this.background.height * scale;
-
-            // Calculate positioning to center the image
-            const x = (CANVAS_WIDTH - scaledWidth) / 2;
-            const y = (CANVAS_HEIGHT - scaledHeight) / 2;
-
+        if (this.background) {
             // Fill the background first
             ctx.fillStyle = '#2c1810';
             ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-            // Draw the background
+            // Get the actual canvas dimensions from the DOM
+            const canvasRect = this.engine.canvas.getBoundingClientRect();
+            const canvasAspectRatio = canvasRect.width / canvasRect.height;
+            
+            // Calculate scaling to fit the width while maintaining aspect ratio
+            const scale = CANVAS_WIDTH / this.background.width;
+            
+            // Calculate the portion of the image to show based on canvas aspect ratio
+            const sourceHeight = this.background.height * (canvasAspectRatio / (this.background.width / this.background.height));
+            
+            // Calculate the middle portion to show
+            const sourceY = (this.background.height - sourceHeight) / 2;
+
+            // Draw the middle portion of the background
             ctx.drawImage(
                 this.background,
-                x, y,
-                scaledWidth,
-                scaledHeight
+                0,                      // source x
+                sourceY,                // source y - start from the middle portion
+                this.background.width,  // source width
+                sourceHeight,          // source height - adjusted for aspect ratio
+                0,                      // destination x
+                0,                      // destination y
+                CANVAS_WIDTH,           // destination width
+                CANVAS_HEIGHT           // destination height
             );
 
-            logger.debug(`Background rendered at (${x}, ${y}) with dimensions ${scaledWidth}x${scaledHeight}`);
+            logger.debug(`Background rendered with scale ${scale}, sourceY: ${sourceY}, aspect ratio: ${canvasAspectRatio}`);
         } else {
             // Draw a placeholder background if image hasn't loaded
             ctx.fillStyle = '#2c1810';
