@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 
 // Components
@@ -70,6 +70,13 @@ const App = () => {
     { time: '4:12 PM', yes: 10, no: 7 },
     { time: '4:14 PM', yes: 12, no: 8 }
   ]);
+
+  const [handleJurorVote, setHandleJurorVote] = useState(null);
+
+  // Memoize the callback
+  const onJurorVote = useCallback((handleVote) => {
+    setHandleJurorVote(() => handleVote);
+  }, []); // Empty dependency array since it doesn't depend on any values
 
   // Initialize with demo content when joining existing debate
   const initializeDemoContent = () => {
@@ -325,9 +332,9 @@ const App = () => {
         currentDebateInfo
       );
 
-      // 添加新消息到列表
+      // Add new message to list
       const newMessage = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // 使用时间戳加随机字符串确保唯一性
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         text: messageData.text,
         sender: walletAddress,
         username: username,
@@ -338,6 +345,33 @@ const App = () => {
       };
       
       setMessages(prevMessages => [...prevMessages, newMessage]);
+
+      // Handle juror opinions from server response
+      if (response && typeof response === 'object') {
+        const newOpinions = {};
+        const timestamp = new Date().toLocaleTimeString();
+        
+        Object.entries(response).forEach(([jurorId, data]) => {
+          newOpinions[jurorId] = {
+            reasoning: data.reasoning,
+            result: data.result,
+            timestamp: timestamp
+          };
+
+          // Trigger voting animation for the specific juror
+          if (handleJurorVote) {
+            handleJurorVote(jurorId, data.result);
+          }
+        });
+
+        setJurorOpinions(prevOpinions => ({
+          ...prevOpinions,
+          ...newOpinions
+        }));
+
+        console.log('Updated juror opinions:', newOpinions);
+      }
+
     } catch (error) {
       console.error('Error sending message:', error);
     }
@@ -387,7 +421,7 @@ const App = () => {
               <div className="w-[50%] flex flex-col gap-1 min-h-0">
                 {/* Court Room */}
                 <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
-                  <CourtRoom jurorOpinions={jurorOpinions} />
+                  <CourtRoom onJurorVote={onJurorVote} />
                 </div>
                 
                 {/* AI Jurors Opinions */}

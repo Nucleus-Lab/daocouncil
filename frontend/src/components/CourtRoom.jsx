@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import GameEngine from '../game/engine/GameEngine';
 import CourtroomScene from '../game/scenes/CourtroomScene';
 import JurorSprite from '../game/sprites/JurorSprite';
@@ -9,7 +9,7 @@ import { BUTTON_STYLES } from '../game/constants/ui';
 import { logger } from '../game/utils/logger';
 import { ASSETS } from '../game/constants/assets';  // Import ASSETS instead of direct image import
 
-const CourtRoom = () => {
+const CourtRoom = ({ onJurorVote }) => {
     const canvasRef = useRef(null);
     const engineRef = useRef(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -86,15 +86,23 @@ const CourtRoom = () => {
         return () => engine.stop();
     }, []);
 
-    const handleVote = (vote) => {
+    // Memoize handleVote
+    const handleVote = useCallback((jurorId, vote) => {
         if (!engineRef.current) return;
+        
+        // Map server juror index (0-4) to sprite ID (juror1-juror5)
+        const spriteId = `juror${parseInt(jurorId) + 1}`;
+        
+        // Animate only the specific juror
+        engineRef.current.handleJurorVote(spriteId, vote);
+    }, []); // Empty dependency array since it uses only refs
 
-        JUROR_CONFIG.forEach((juror, index) => {
-            setTimeout(() => {
-                engineRef.current.handleJurorVote(juror.id, vote);
-            }, index * VOTE_DELAY);
-        });
-    };
+    // Update effect with proper dependencies
+    useEffect(() => {
+        if (onJurorVote && handleVote) {
+            onJurorVote(handleVote);
+        }
+    }, [onJurorVote, handleVote]);  // Add both dependencies
 
     const handleJudgeCommand = (command) => {
         if (!engineRef.current) return;

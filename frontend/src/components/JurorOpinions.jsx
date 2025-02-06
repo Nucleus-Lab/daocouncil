@@ -3,7 +3,7 @@ import UserAvatar from './UserAvatar';
 import VotingTrends from './VotingTrends';
 
 const JurorOpinions = ({ 
-  jurorOpinions, 
+  jurorOpinions = {}, 
   isJurorOpinionsExpanded, 
   setIsJurorOpinionsExpanded,
   votingTrends,
@@ -69,17 +69,31 @@ const JurorOpinions = ({
       <div className={`flex-1 overflow-y-auto min-h-0 pr-1.5 ${isJurorOpinionsExpanded ? 'p-2' : ''}`}>
         {currentView === 'opinions' ? (
           <div className="flex-1 overflow-y-auto min-h-0 space-y-2">
-            {jurorOpinions.map((opinion, index) => (
-              <div key={index} className="p-3 bg-white/5 rounded">
-                <div className="flex items-start gap-3">
-                  <UserAvatar name={opinion.name} />
-                  <div>
-                    <div className="text-amber-200/90 text-sm mb-1">{opinion.name}</div>
-                    <div className="text-amber-50/80 text-sm whitespace-pre-wrap">{opinion.opinion}</div>
+            {Object.entries(jurorOpinions || {}).map(([jurorId, opinion]) => (
+              <div key={jurorId} className="p-3 bg-white/5 rounded">
+                <div className="flex items-start">
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-amber-200/90 text-sm">
+                        Juror #{parseInt(jurorId) + 1}
+                      </h3>
+                      <span className="text-amber-50/40 text-xs">
+                        {opinion.timestamp}
+                      </span>
+                    </div>
+                    <p className="text-amber-50/80 text-sm mt-1">{opinion.reasoning}</p>
+                    <p className="text-amber-50/60 text-xs mt-2">
+                      Stance: {opinion.result}
+                    </p>
                   </div>
                 </div>
               </div>
             ))}
+            {Object.keys(jurorOpinions || {}).length === 0 && (
+              <div className="text-amber-50/60 text-sm text-center p-4">
+                No juror opinions yet. Start the debate to see their thoughts.
+              </div>
+            )}
           </div>
         ) : (
           <VotingTrends messages={messages} debateSides={debateSides} votingData={votingTrends} />
