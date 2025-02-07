@@ -230,41 +230,41 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-[#00000080] flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex-none p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-court-brown">Create New Debate</h2>
+        <div className="flex-none p-6 border-b border-[#e5e7eb]">
+          <h2 className="text-2xl font-bold text-[#4a5568]">Create New Debate</h2>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-6 bg-white">
           <form onSubmit={handleSubmit} id="create-debate-form" className="space-y-6">
             {/* Debate ID */}
-            <div className="bg-amber-50 p-4 rounded-md">
+            <div className="bg-[#fff8e1] p-4 rounded-md">
               <div className="flex items-center justify-between">
                 <div>
-                  <label className="block text-sm font-medium text-amber-800 mb-1">
+                  <label className="block text-sm font-medium text-[#92400e] mb-1">
                     Debate ID
                   </label>
-                  <div className="text-lg font-mono font-bold text-amber-900">
+                  <div className="text-lg font-mono font-bold text-[#92400e]">
                     {formData.debateId}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={copyDebateId}
-                  className="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-md transition-colors"
+                  className="px-3 py-1.5 text-sm bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] rounded-md transition-colors"
                 >
                   {copied ? 'Copied!' : 'Copy ID'}
                 </button>
               </div>
-              <p className="mt-2 text-sm text-amber-700">
+              <p className="mt-2 text-sm text-[#92400e]">
                 Save this ID to share with others who want to join the debate.
               </p>
             </div>
 
             {/* Topic */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#4a5568] mb-1">
                 Debate Topic
               </label>
               <input
@@ -272,14 +272,14 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 required
                 value={formData.topic}
                 onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
+                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
                 placeholder="Enter the topic for debate"
               />
             </div>
 
             {/* Jurors */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[#4a5568] mb-2">
                 Juror Personas
               </label>
               <div className="space-y-3">
@@ -290,8 +290,8 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                     disabled={!formData.topic}
                     className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
                       formData.topic 
-                        ? 'bg-court-brown text-white hover:bg-opacity-90'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        ? 'bg-[#92400e] text-white hover:bg-[#78350f]'
+                        : 'bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed'
                     }`}
                   >
                     Generate Personas
@@ -304,7 +304,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                       onChange={(e) => handleJurorPersonaChange(juror.id, e.target.value)}
                       onFocus={() => handleJurorFocus(juror.id)}
                       placeholder={`Juror ${index + 1} Persona Description`}
-                      className={`flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-court-brown transition-all duration-300 ease-in-out ${
+                      className={`flex-1 p-2 border border-[#e5e7eb] rounded focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c] transition-all duration-300 ease-in-out ${
                         juror.expanded ? 'h-32' : 'h-10'
                       }`}
                       style={{
@@ -319,7 +319,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
             {/* Funding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-[#4a5568] mb-2">
                 Funding
               </label>
               <input
@@ -332,21 +332,21 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                   const funding = value === '' ? '' : Number(parseFloat(value).toFixed(18));
                   setFormData(prev => ({ ...prev, funding }));
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
                 placeholder="Enter funding amount"
               />
             </div>
 
             {/* Action Prompt */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[#4a5568] mb-1">
                 Action Prompt
               </label>
               <textarea
                 required
                 value={formData.actionPrompt}
                 onChange={(e) => setFormData(prev => ({ ...prev, actionPrompt: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
+                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
                 rows="3"
                 placeholder="What action should be taken based on the debate outcome?"
               />
@@ -355,13 +355,13 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
             {/* Debate Sides */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">
+                <label className="block text-sm font-medium text-[#4a5568]">
                   Debate Sides
                 </label>
                 <button
                   type="button"
                   onClick={addSide}
-                  className="text-sm text-court-brown hover:text-court-brown-dark"
+                  className="text-sm text-[#92400e] hover:text-[#78350f]"
                 >
                   + Add Side
                 </button>
@@ -373,7 +373,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                       type="text"
                       value={side.name}
                       onChange={(e) => updateSideName(side.id, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
+                      className="flex-1 px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
                       placeholder="Enter side name"
                       required
                     />
@@ -381,7 +381,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                       <button
                         type="button"
                         onClick={() => removeSide(side.id)}
-                        className="text-red-500 hover:text-red-700"
+                        className="text-[#ef4444] hover:text-[#dc2626]"
                       >
                         Remove
                       </button>
@@ -394,13 +394,13 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
             {/* Date Range */}
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[#4a5568] mb-1">
                   Start Date
                 </label>
                 <DatePicker
                   selected={formData.startDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
+                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
                   dateFormat="yyyy-MM-dd HH:mm"
                   showTimeSelect
                   timeFormat="HH:mm"
@@ -410,13 +410,13 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[#4a5568] mb-1">
                   End Date
                 </label>
                 <DatePicker
                   selected={formData.endDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
+                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
                   dateFormat="yyyy-MM-dd HH:mm"
                   showTimeSelect
                   timeFormat="HH:mm"
@@ -429,19 +429,19 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
           </form>
         </div>
 
-        <div className="flex-none p-6 border-t border-gray-200 bg-gray-50">
+        <div className="flex-none p-6 border-t border-[#e5e7eb] bg-[#f9fafb]">
           <div className="flex justify-end gap-4">
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className="px-4 py-2 text-[#4a5568] hover:text-[#1a202c] transition-colors"
             >
               Cancel
             </button>
             <button
               form="create-debate-form"
               type="submit"
-              className="px-4 py-2 bg-court-brown text-white rounded-md hover:bg-opacity-90 transition-colors"
+              className="px-4 py-2 bg-[#92400e] text-white rounded-md hover:bg-[#78350f] transition-colors"
             >
               Create Debate
             </button>
