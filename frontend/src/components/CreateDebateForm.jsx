@@ -26,6 +26,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   });
 
   const [copied, setCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const generateDebateId = () => {
@@ -187,11 +188,9 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   };
 
   const generatePersonas = async () => {
-    if (!formData.topic) {
-      alert('Please enter a topic first');
-      return;
-    }
-
+    if (!formData.topic || isGenerating) return;
+    
+    setIsGenerating(true);
     try {
       const response = await fetch(`http://localhost:8000/generate_personas`, {
         method: 'POST',
@@ -206,7 +205,6 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Server error:', errorData);
         throw new Error(errorData.detail || 'Failed to generate personas');
       }
 
@@ -226,6 +224,8 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
     } catch (error) {
       console.error('Error generating personas:', error);
       alert(error.message || 'Failed to generate personas. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -287,14 +287,20 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                   <button
                     type="button"
                     onClick={generatePersonas}
-                    disabled={!formData.topic}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      formData.topic 
-                        ? 'bg-[#92400e] text-white hover:bg-[#78350f]'
-                        : 'bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed'
+                    disabled={!formData.topic || isGenerating}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-2 ${
+                      !formData.topic || isGenerating
+                        ? 'bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed'
+                        : 'bg-[#92400e] text-white hover:bg-[#78350f]'
                     }`}
                   >
-                    Generate Personas
+                    {isGenerating && (
+                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    {isGenerating ? 'Generating...' : 'Auto Generate'}
                   </button>
                 </div>
                 {formData.jurors.map((juror, index) => (
