@@ -8,11 +8,11 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
     topic: '',
     numJurors: 5,
     jurors: [
-      { id: '1', persona: '' },
-      { id: '2', persona: '' },
-      { id: '3', persona: '' },
-      { id: '4', persona: '' },
-      { id: '5', persona: '' }
+      { id: '1', persona: '', expanded: false },
+      { id: '2', persona: '', expanded: false },
+      { id: '3', persona: '', expanded: false },
+      { id: '4', persona: '', expanded: false },
+      { id: '5', persona: '', expanded: false }
     ],
     funding: 0,
     actionPrompt: '',
@@ -143,6 +143,16 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
       jurors: prev.jurors.map(juror =>
         juror.id === id ? { ...juror, persona: newPersona } : juror
       )
+    }));
+  };
+
+  const handleJurorFocus = (focusedId) => {
+    setFormData(prev => ({
+      ...prev,
+      jurors: prev.jurors.map(juror => ({
+        ...juror,
+        expanded: juror.id === focusedId
+      }))
     }));
   };
 
@@ -289,12 +299,18 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 </div>
                 {formData.jurors.map((juror, index) => (
                   <div key={juror.id} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
+                    <textarea
                       value={juror.persona}
                       onChange={(e) => handleJurorPersonaChange(juror.id, e.target.value)}
+                      onFocus={() => handleJurorFocus(juror.id)}
                       placeholder={`Juror ${index + 1} Persona Description`}
-                      className="flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-court-brown"
+                      className={`flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-court-brown transition-all duration-300 ease-in-out ${
+                        juror.expanded ? 'h-32' : 'h-10'
+                      }`}
+                      style={{
+                        resize: 'none',
+                        overflow: juror.expanded ? 'auto' : 'hidden'
+                      }}
                     />
                   </div>
                 ))}
