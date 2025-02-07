@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
+import { API_CONFIG } from '../config/api';
 
 const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   const [formData, setFormData] = useState({
@@ -77,7 +78,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
     try {
       // 首先创建或更新用户
-      const userResponse = await fetch('http://localhost:8000/user', {
+      const userResponse = await fetch(`${API_CONFIG.BACKEND_URL}/user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -94,7 +95,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
       }
 
       // 然后创建辩论
-      const response = await fetch('http://localhost:8000/debate', {
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/debate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

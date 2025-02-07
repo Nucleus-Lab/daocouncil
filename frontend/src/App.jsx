@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
+import { API_CONFIG } from './config/api';
 
 // Components
 import Header from './components/Header';
@@ -275,7 +276,7 @@ const App = () => {
       await addMessage(initialMessage, null, 0, null, debateInfo);
 
       // 加载历史消息
-      const response = await fetch(`http://localhost:8000/msg/${debateInfo.discussion_id}`);
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateInfo.discussion_id}`);
       if (!response.ok) {
         throw new Error('Failed to load messages');
       }
@@ -304,7 +305,7 @@ const App = () => {
 
     // 加载历史消息
     try {
-      const response = await fetch(`http://localhost:8000/msg/${debateId}`);
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateId}`);
       if (!response.ok) {
         throw new Error('Failed to load messages');
       }

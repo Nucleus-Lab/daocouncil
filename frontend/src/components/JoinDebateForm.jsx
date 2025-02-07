@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { API_CONFIG } from '../config/api';
 
 const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   const [debateId, setDebateId] = useState('');
@@ -31,7 +32,7 @@ const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
     try {
       // 先获取辩论信息，确认辩论存在
-      const debateResponse = await fetch(`http://localhost:8000/debate/${debateIdNum}`);
+      const debateResponse = await fetch(`${API_CONFIG.BACKEND_URL}/debate/${debateIdNum}`);
       if (!debateResponse.ok) {
         if (debateResponse.status === 404) {
           throw new Error('Debate not found. Please check if the debate ID is correct.');
@@ -45,7 +46,7 @@ const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
       }
 
       // 注册用户并加入辩论
-      const userResponse = await fetch('http://localhost:8000/user', {
+      const userResponse = await fetch(`${API_CONFIG.BACKEND_URL}/user`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

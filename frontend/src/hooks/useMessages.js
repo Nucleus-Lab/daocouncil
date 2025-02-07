@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_CONFIG } from '../config/api';
 
 export const useMessages = (walletAddress, username) => {
   const [messages, setMessages] = useState([]);
@@ -28,7 +29,7 @@ export const useMessages = (walletAddress, username) => {
       // 调试日志
       console.log('Sending message data:', messageData);
 
-      const response = await fetch('http://localhost:8000/msg', {
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
