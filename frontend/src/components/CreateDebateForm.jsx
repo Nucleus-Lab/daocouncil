@@ -6,9 +6,13 @@ import { API_CONFIG } from '../config/api';
 const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   const [formData, setFormData] = useState({
     topic: '',
-    numJurors: 1,
+    numJurors: 5,
     jurors: [
-      { id: '1', persona: '' }
+      { id: '1', persona: '' },
+      { id: '2', persona: '' },
+      { id: '3', persona: '' },
+      { id: '4', persona: '' },
+      { id: '5', persona: '' }
     ],
     funding: 0,
     actionPrompt: '',
@@ -142,27 +146,6 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
     }));
   };
 
-  const addJuror = () => {
-    setFormData(prev => ({
-      ...prev,
-      jurors: [
-        ...prev.jurors,
-        { id: (prev.jurors.length + 1).toString(), persona: '' }
-      ]
-    }));
-  };
-
-  const removeJuror = (id) => {
-    if (formData.jurors.length <= 1) {
-      alert('A debate must have at least 1 juror');
-      return;
-    }
-    setFormData(prev => ({
-      ...prev,
-      jurors: prev.jurors.filter(juror => juror.id !== id)
-    }));
-  };
-
   const addSide = () => {
     setFormData(prev => ({
       ...prev,
@@ -191,6 +174,49 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
         side.id === id ? { ...side, name: newName } : side
       )
     }));
+  };
+
+  const generatePersonas = async () => {
+    if (!formData.topic) {
+      alert('Please enter a topic first');
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:8000/generate_personas`, {
+        method: 'POST',
+        headers: {
+          'accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          topic: formData.topic
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Server error:', errorData);
+        throw new Error(errorData.detail || 'Failed to generate personas');
+      }
+
+      const data = await response.json();
+      console.log('Generated personas:', data); // 添加日志以查看返回数据
+      
+      // 直接使用返回的personas数组
+      if (data.personas && data.personas.length >= 5) {
+        const newJurors = formData.jurors.map((juror, index) => ({
+          ...juror,
+          persona: data.personas[index]
+        }));
+        setFormData(prev => ({ ...prev, jurors: newJurors }));
+      } else {
+        throw new Error('Not enough personas generated');
+      }
+    } catch (error) {
+      console.error('Error generating personas:', error);
+      alert(error.message || 'Failed to generate personas. Please try again.');
+    }
   };
 
   return (
@@ -247,34 +273,31 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 Juror Personas
               </label>
               <div className="space-y-3">
-                {formData.jurors.map((juror) => (
-                  <div key={juror.id} className="flex gap-2">
-                    <textarea
+                <div className="flex justify-between items-center mb-2">
+                  <button
+                    type="button"
+                    onClick={generatePersonas}
+                    disabled={!formData.topic}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                      formData.topic 
+                        ? 'bg-court-brown text-white hover:bg-opacity-90'
+                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Generate Personas
+                  </button>
+                </div>
+                {formData.jurors.map((juror, index) => (
+                  <div key={juror.id} className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
                       value={juror.persona}
                       onChange={(e) => handleJurorPersonaChange(juror.id, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-                      rows="3"
-                      placeholder={`Juror ${juror.id} Persona`}
-                      required
+                      placeholder={`Juror ${index + 1} Persona Description`}
+                      className="flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-court-brown"
                     />
-                    {formData.jurors.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeJuror(juror.id)}
-                        className="px-3 py-2 text-red-500 hover:text-red-700"
-                      >
-                        Remove
-                      </button>
-                    )}
                   </div>
                 ))}
-                <button
-                  type="button"
-                  onClick={addJuror}
-                  className="mt-2 px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800"
-                >
-                  + Add Juror
-                </button>
               </div>
             </div>
 
@@ -287,11 +310,10 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 type="number"
                 step="any"
                 min="0"
-                value={formData.funding}
+                value={formData.funding === 0 && formData.funding === '' ? '' : formData.funding}
                 onChange={(e) => {
                   const value = e.target.value;
-                  // 保留18位小数，这样能处理大多数token的精度
-                  const funding = value === '' ? 0 : Number(parseFloat(value).toFixed(18));
+                  const funding = value === '' ? '' : Number(parseFloat(value).toFixed(18));
                   setFormData(prev => ({ ...prev, funding }));
                 }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"

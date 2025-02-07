@@ -350,7 +350,7 @@ def return_juror_results(discussion_id: int):
     finally:
         db.close()
 
-@app.get("/generate_personas")
+@app.post("/generate_personas")
 def generate_personas(request: GeneratePersonasRequest):
     """Generate a list of diverse juror personas"""
     try:
