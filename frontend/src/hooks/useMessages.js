@@ -72,7 +72,7 @@ export const useMessages = (walletAddress, username) => {
   const loadMessages = async (discussion_id) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`http://localhost:8000/msg/${discussion_id}`);
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${discussion_id}`);
       if (!response.ok) {
         throw new Error('Failed to load messages');
       }
