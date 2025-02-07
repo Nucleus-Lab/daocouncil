@@ -30,6 +30,11 @@ DAOCouncil is a decentralized governance platform where AI agents act as jurors 
 
 Traditional DAO voting mechanisms often favor large token holders, undermining fair governance. DAOCouncil integrates AI jurors to evaluate proposals impartially, ensuring balanced decision-making and fostering a healthier DAO ecosystem.
 
+## Deployed URLs
+
+Frontend: to be deployed
+Backend: https://daocouncil-backend-service.onrender.com/
+
 ## Installation
 
 ### Frontend
@@ -40,21 +45,21 @@ npm install
 npm run dev
 ```
 
-### Judge Agent
+### Backend
+
+Change backend url in `frontend\src\config\api.js`. Use `http://localhost:8000` for local development.
 
 ```
-pip install cdp-langchain
-cd judge-agent/cdp-agentkit
-cp .env.example .env  # fill in the API keys
-python test_agentkit.py
+uvicorn backend.main:app --reload
 ```
 
 ## 🛠️ Tech Stack
 
-Frontend: React
+
+Frontend: React + Vite
 
 Backend: Python, Node.js
 
-AI Agents: CDP AgentKit, Autonome Altlayer
+AI Agents: CDP AgentKit, Autonome Altlayer, Privy Server Wallet
 
 Blockchain: Solidity Smart Contracts
