@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
+import { API_CONFIG } from './config/api';
 
 // Components
 import Header from './components/Header';
@@ -13,6 +14,7 @@ import JoinDebateForm from './components/JoinDebateForm';
 // Hooks
 import { useMessages } from './hooks/useMessages';
 import { useJurorOpinions } from './hooks/useJurorOpinions';
+import { useWebSocket } from './hooks/useWebSocket';
 
 // Privy
 import { usePrivy } from '@privy-io/react-auth';
@@ -274,7 +276,7 @@ const App = () => {
       await addMessage(initialMessage, null, 0, null, debateInfo);
 
       // 加载历史消息
-      const response = await fetch(`http://localhost:8000/msg/${debateInfo.discussion_id}`);
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateInfo.discussion_id}`);
       if (!response.ok) {
         throw new Error('Failed to load messages');
       }
@@ -303,7 +305,7 @@ const App = () => {
 
     // 加载历史消息
     try {
-      const response = await fetch(`http://localhost:8000/msg/${debateId}`);
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateId}`);
       if (!response.ok) {
         throw new Error('Failed to load messages');
       }
@@ -325,70 +327,89 @@ const App = () => {
     setCurrentView('debate');
   };
 
+  // Handle real-time message updates
+  const handleNewMessage = useCallback((messageData) => {
+    setMessages(prevMessages => {
+      // Check if message already exists
+      if (prevMessages.some(msg => msg.id === messageData.id)) {
+        return prevMessages;
+      }
+
+      const newMessage = {
+        id: messageData.id,
+        text: messageData.message,
+        sender: messageData.user_address,
+        username: messageData.username || 'Anonymous',
+        timestamp: new Date(messageData.timestamp).toLocaleTimeString(),
+        stance: messageData.stance,
+        round: currentRound
+      };
+
+      return [...prevMessages, newMessage];
+    });
+  }, [currentRound]);
+
+  // Handle real-time juror response updates
+  const handleJurorResponse = useCallback((responseData) => {
+    const { message_id, responses } = responseData;
+    const timestamp = new Date().toLocaleTimeString();
+
+    // Update juror opinions
+    Object.entries(responses).forEach(([jurorId, data]) => {
+      const newOpinion = {
+        id: `${Date.now()}-${jurorId}`,
+        jurorId,
+        reasoning: data.reasoning,
+        result: data.result,
+        timestamp: timestamp
+      };
+
+      setJurorOpinions(prevOpinions => ({
+        ...prevOpinions,
+        [newOpinion.id]: newOpinion
+      }));
+
+      // Trigger voting animation
+      if (handleJurorVote) {
+        handleJurorVote(jurorId, data.result);
+      }
+    });
+
+    // Update AI voting trends
+    setAiVotingTrends(prevTrends => [
+      ...prevTrends,
+      {
+        time: timestamp,
+        votes: Object.values(responses).reduce((acc, curr) => {
+          acc[curr.result] = (acc[curr.result] || 0) + 1;
+          return acc;
+        }, {})
+      }
+    ]);
+  }, [handleJurorVote]);
+
+  // Initialize WebSocket connection
+  useWebSocket(
+    currentDebateId,
+    walletAddress || 'anonymous',
+    handleNewMessage,
+    handleJurorResponse
+  );
+
+  // Modify handleSubmitMessage to only handle message sending
   const handleSubmitMessage = async (messageData) => {
     try {
-      const response = await addMessage(
+      // Just send the message - juror responses will come through WebSocket
+      await addMessage(
         messageData.text,
         messageData.stance,
         currentRound,
         messageData.replyTo,
         currentDebateInfo
       );
-
-      // Add new message to list
-      const newMessage = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        text: messageData.text,
-        sender: walletAddress,
-        username: username,
-        timestamp: new Date().toLocaleTimeString(),
-        stance: messageData.stance,
-        round: currentRound,
-        replyTo: messageData.replyTo
-      };
-      
-      setMessages(prevMessages => [...prevMessages, newMessage]);
-
-      // Handle juror opinions from server response
-      if (response && typeof response === 'object') {
-        const timestamp = new Date().toLocaleTimeString();
-        
-        Object.entries(response).forEach(([jurorId, data]) => {
-          const newOpinion = {
-            id: `${Date.now()}-${jurorId}`, // Add unique ID for each opinion
-            jurorId,
-            reasoning: data.reasoning,
-            result: data.result,
-            timestamp: timestamp
-          };
-
-          // Append new opinion instead of replacing
-          setJurorOpinions(prevOpinions => ({
-            ...prevOpinions,
-            [newOpinion.id]: newOpinion
-          }));
-
-          // Trigger voting animation for the specific juror
-          if (handleJurorVote) {
-            handleJurorVote(jurorId, data.result);
-          }
-        });
-
-        // Update AI voting trends
-        setAiVotingTrends(prevTrends => [
-          ...prevTrends,
-          {
-            time: timestamp,
-            votes: Object.values(response).reduce((acc, curr) => {
-              acc[curr.result] = (acc[curr.result] || 0) + 1;
-              return acc;
-            }, {})
-          }
-        ]);
-      }
-
     } catch (error) {
       console.error('Error sending message:', error);
+      throw error;
     }
   };
 

@@ -3,10 +3,11 @@ load_dotenv()
 
 import os
 import logging
-from typing import List
-from fastapi import FastAPI, HTTPException
+from typing import List, Dict
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 import dspy
+import asyncio
 
 # custom modules
 from backend.database import SessionLocal, Base, engine
@@ -37,58 +38,201 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Store connected WebSocket clients
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: Dict[str, Dict[str, WebSocket]] = {}  # debate_id -> {client_id: websocket}
+
+    async def connect(self, websocket: WebSocket, debate_id: str, client_id: str):
+        await websocket.accept()
+        if debate_id not in self.active_connections:
+            self.active_connections[debate_id] = {}
+        self.active_connections[debate_id][client_id] = websocket
+
+    def disconnect(self, debate_id: str, client_id: str):
+        if debate_id in self.active_connections:
+            self.active_connections[debate_id].pop(client_id, None)
+            if not self.active_connections[debate_id]:
+                self.active_connections.pop(debate_id, None)
+
+    async def broadcast_message(self, debate_id: str, message: dict):
+        if debate_id in self.active_connections:
+            for connection in self.active_connections[debate_id].values():
+                try:
+                    await connection.send_json(message)
+                except:
+                    # Handle failed connections
+                    continue
+
+manager = ConnectionManager()
+
 @app.get("/")
 def read_root():
     return {"message": "Hello, World!"}
 
+# Add a function to process juror responses
+async def process_juror_responses(db, message_id: int, discussion_id: int):
+    try:
+        debate_info = get_debate(db, discussion_id)
+        past_messages = get_chat_history(db, discussion_id)
+        jurors = get_jurors(db, discussion_id)
+        
+        conv_history = ""
+        for msg in past_messages:
+            user = get_user(db, msg.user_address)
+            conv_history += f"{user.username}: {msg.message}\n"
+        
+        sides = []
+        for idx, side in enumerate(debate_info.sides):
+            sides.append(Side(id=str(idx), description=side))
+        
+        results = {}
+        for juror_db in jurors:
+            juror = Juror(persona=juror_db.persona)
+            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
+            results[juror_db.juror_id] = {
+                "result": result,
+                "reasoning": reasoning
+            }
+            create_juror_result(
+                db=db, 
+                discussion_id=discussion_id, 
+                latest_msg_id=message_id, 
+                juror_id=juror_db.juror_id, 
+                result=result, 
+                reasoning=reasoning
+            )
+                
+        db.commit()
+
+        # Prepare juror response data for broadcast
+        response_data = {
+            "type": "juror_response",
+            "data": {
+                "message_id": message_id,
+                "responses": results
+            }
+        }
+        
+        # Broadcast the juror responses
+        await manager.broadcast_message(str(discussion_id), response_data)
+        
+    except Exception as e:
+        logger.error(f"Error processing juror responses: {str(e)}")
+        db.rollback()
 
 @app.post("/msg")
-def post_msg(request: ChatMessage):
+async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
     db = SessionLocal()
-    # 调试日志
-    # try:
-    logger.info(f"Received message request: {request}")
-    
-    new_message = create_chat_message(
-        db=db,
-        discussion_id=request.discussion_id,
-        user_address=request.user_address,
-        message=request.message,
-        stance=request.stance  # 直接使用 request.stance
-    )
-    db.commit()
-    
-    debate_info = get_debate(db, request.discussion_id)
-    past_messages = get_chat_history(db, request.discussion_id)
-    jurors = get_jurors(db, request.discussion_id)
-    
-    conv_history = ""
-    for msg in past_messages:
-        user = get_user(db, msg.user_address)
-        conv_history += f"{user.username}: {msg.message}\n"
-    
-    sides = []
-    for idx, side in enumerate(debate_info.sides):
-        sides.append(Side(id=str(idx), description=side))
-    
-    results = {}
-    for juror_db in jurors:
-        juror = Juror(persona=juror_db.persona)
-        result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
-        results[juror_db.juror_id] = {
-            "result": result,
-            "reasoning": reasoning
+    try:
+        logger.info(f"Received message request: {request}")
+        
+        new_message = create_chat_message(
+            db=db,
+            discussion_id=request.discussion_id,
+            user_address=request.user_address,
+            message=request.message,
+            stance=request.stance
+        )
+        db.commit()
+
+        # Prepare message data for broadcast
+        message_data = {
+            "type": "new_message",
+            "data": {
+                "id": new_message.id,
+                "discussion_id": new_message.discussion_id,
+                "user_address": new_message.user_address,
+                "message": new_message.message,
+                "stance": new_message.stance,
+                "timestamp": new_message.created_at.isoformat()
+            }
         }
-        create_juror_result(db=db, discussion_id=request.discussion_id, latest_msg_id=new_message.id, juror_id=juror_db.juror_id, result=result, reasoning=reasoning)
+        
+        # Immediately broadcast the message
+        await manager.broadcast_message(str(request.discussion_id), message_data)
+        
+        # Process juror responses in the background
+        background_tasks.add_task(
+            process_juror_responses,
+            db=SessionLocal(),  # Create a new db session for background task
+            message_id=new_message.id,
+            discussion_id=request.discussion_id
+        )
+        
+        return {"message_id": new_message.id, "status": "success"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating message: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
+    finally:
+        db.close()
+
+@app.post("/juror_response/{message_id}")
+async def get_juror_response(message_id: int, background_tasks: BackgroundTasks):
+    db = SessionLocal()
+    try:
+        from backend.database.chat_message import ChatMessageDB
+        
+        message = db.query(ChatMessageDB).filter(ChatMessageDB.id == message_id).first()
+        if not message:
+            raise HTTPException(status_code=404, detail="Message not found")
             
-    return results
-    
-    # except Exception as e:
-    #     db.rollback()
-    #     logger.error(f"Error creating message: {str(e)}")
-    #     raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
-    # finally:
-    #     db.close()
+        debate_info = get_debate(db, message.discussion_id)
+        past_messages = get_chat_history(db, message.discussion_id)
+        jurors = get_jurors(db, message.discussion_id)
+        
+        conv_history = ""
+        for msg in past_messages:
+            user = get_user(db, msg.user_address)
+            conv_history += f"{user.username}: {msg.message}\n"
+        
+        sides = []
+        for idx, side in enumerate(debate_info.sides):
+            sides.append(Side(id=str(idx), description=side))
+        
+        results = {}
+        for juror_db in jurors:
+            juror = Juror(persona=juror_db.persona)
+            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
+            results[juror_db.juror_id] = {
+                "result": result,
+                "reasoning": reasoning
+            }
+            create_juror_result(
+                db=db, 
+                discussion_id=message.discussion_id, 
+                latest_msg_id=message_id, 
+                juror_id=juror_db.juror_id, 
+                result=result, 
+                reasoning=reasoning
+            )
+                
+        db.commit()
+
+        # Prepare response data for broadcast
+        response_data = {
+            "type": "juror_response",
+            "data": {
+                "message_id": message_id,
+                "responses": results
+            }
+        }
+        
+        # Add broadcast task to background tasks
+        background_tasks.add_task(
+            manager.broadcast_message,
+            str(message.discussion_id),
+            response_data
+        )
+        
+        return results
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error getting juror response: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting juror response: {str(e)}")
+    finally:
+        db.close()
 
 @app.get("/msg/{discussion_id}", response_model=List[ChatMessage])
 def get_msg(discussion_id: int):
@@ -205,3 +349,13 @@ def return_juror_results(discussion_id: int):
         raise HTTPException(status_code=500, detail="Error retrieving juror results")
     finally:
         db.close()
+
+@app.websocket("/ws/{debate_id}/{client_id}")
+async def websocket_endpoint(websocket: WebSocket, debate_id: str, client_id: str):
+    await manager.connect(websocket, debate_id, client_id)
+    try:
+        while True:
+            # Keep the connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(debate_id, client_id)
