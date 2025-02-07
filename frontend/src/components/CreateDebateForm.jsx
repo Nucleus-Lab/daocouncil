@@ -230,41 +230,109 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-[#00000080] flex items-center justify-center p-4">
-      <div className="bg-[#ffffff] rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex-none p-6 border-b border-[#e5e7eb]">
-          <h2 className="text-2xl font-bold text-[#4a5568]">Create New Debate</h2>
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: '1rem'
+    }}>
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '0.5rem',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        width: '100%',
+        maxWidth: '42rem',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: '90vh'
+      }}>
+        <div style={{
+          padding: '1.5rem',
+          borderBottom: '1px solid #e5e7eb'
+        }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            color: '#1a202c'
+          }}>Create New Debate</h2>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6 bg-[#ffffff]">
-          <form onSubmit={handleSubmit} id="create-debate-form" className="space-y-6">
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1.5rem',
+          backgroundColor: '#ffffff'
+        }}>
+          <form onSubmit={handleSubmit} id="create-debate-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Debate ID */}
-            <div className="bg-[#fff8e1] p-4 rounded-md">
-              <div className="flex items-center justify-between">
+            <div style={{
+              backgroundColor: '#fff8e1',
+              padding: '1rem',
+              borderRadius: '0.375rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <label className="block text-sm font-medium text-[#92400e] mb-1">
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: '#92400e',
+                    marginBottom: '0.25rem'
+                  }}>
                     Debate ID
                   </label>
-                  <div className="text-lg font-mono font-bold text-[#92400e]">
+                  <div style={{
+                    fontSize: '1.125rem',
+                    fontFamily: 'monospace',
+                    fontWeight: 'bold',
+                    color: '#92400e'
+                  }}>
                     {formData.debateId}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={copyDebateId}
-                  className="px-3 py-1.5 text-sm bg-[#fef3c7] hover:bg-[#fde68a] text-[#92400e] rounded-md transition-colors"
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    fontSize: '0.875rem',
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    borderRadius: '0.375rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseOver={e => e.target.style.backgroundColor = '#fde68a'}
+                  onMouseOut={e => e.target.style.backgroundColor = '#fef3c7'}
                 >
                   {copied ? 'Copied!' : 'Copy ID'}
                 </button>
               </div>
-              <p className="mt-2 text-sm text-[#92400e]">
+              <p style={{
+                marginTop: '0.5rem',
+                fontSize: '0.875rem',
+                color: '#92400e'
+              }}>
                 Save this ID to share with others who want to join the debate.
               </p>
             </div>
 
             {/* Topic */}
             <div>
-              <label className="block text-sm font-medium text-[#4a5568] mb-1">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.25rem'
+              }}>
                 Debate Topic
               </label>
               <input
@@ -272,50 +340,87 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 required
                 value={formData.topic}
                 onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
-                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.375rem',
+                  backgroundColor: '#ffffff',
+                  color: '#1a202c',
+                  outline: 'none'
+                }}
                 placeholder="Enter the topic for debate"
               />
             </div>
 
             {/* Jurors */}
             <div>
-              <label className="block text-sm font-medium text-[#4a5568] mb-2">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.5rem'
+              }}>
                 Juror Personas
               </label>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center mb-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <button
                     type="button"
                     onClick={generatePersonas}
                     disabled={!formData.topic || isGenerating}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors flex items-center gap-2 ${
-                      !formData.topic || isGenerating
-                        ? 'bg-[#e5e7eb] text-[#9ca3af] cursor-not-allowed'
-                        : 'bg-[#92400e] text-white hover:bg-[#78350f]'
-                    }`}
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      fontSize: '0.875rem',
+                      backgroundColor: !formData.topic || isGenerating ? '#e5e7eb' : '#92400e',
+                      color: !formData.topic || isGenerating ? '#9ca3af' : '#ffffff',
+                      borderRadius: '0.375rem',
+                      border: 'none',
+                      cursor: !formData.topic || isGenerating ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseOver={e => {
+                      if (formData.topic && !isGenerating) {
+                        e.target.style.backgroundColor = '#78350f';
+                      }
+                    }}
+                    onMouseOut={e => {
+                      if (formData.topic && !isGenerating) {
+                        e.target.style.backgroundColor = '#92400e';
+                      }
+                    }}
                   >
                     {isGenerating && (
-                      <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      <svg style={{ animation: 'spin 1s linear infinite', height: '1rem', width: '1rem' }} viewBox="0 0 24 24">
+                        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
                     )}
                     {isGenerating ? 'Generating...' : 'Auto Generate'}
                   </button>
                 </div>
                 {formData.jurors.map((juror, index) => (
-                  <div key={juror.id} className="flex items-center gap-2 mb-2">
+                  <div key={juror.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <textarea
                       value={juror.persona}
                       onChange={(e) => handleJurorPersonaChange(juror.id, e.target.value)}
                       onFocus={() => handleJurorFocus(juror.id)}
                       placeholder={`Juror ${index + 1} Persona Description`}
-                      className={`flex-1 p-2 border border-[#e5e7eb] rounded focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af] transition-all duration-300 ease-in-out ${
-                        juror.expanded ? 'h-32' : 'h-10'
-                      }`}
                       style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        height: juror.expanded ? '8rem' : '2.5rem',
                         resize: 'none',
-                        overflow: juror.expanded ? 'auto' : 'hidden'
+                        overflow: juror.expanded ? 'auto' : 'hidden',
+                        transition: 'height 0.3s ease-in-out'
                       }}
                     />
                   </div>
@@ -325,7 +430,13 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
             {/* Funding */}
             <div>
-              <label className="block text-sm font-medium text-[#4a5568] mb-2">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.5rem'
+              }}>
                 Funding
               </label>
               <input
@@ -338,48 +449,92 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                   const funding = value === '' ? '' : Number(parseFloat(value).toFixed(18));
                   setFormData(prev => ({ ...prev, funding }));
                 }}
-                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.375rem',
+                  backgroundColor: '#ffffff',
+                  color: '#1a202c',
+                  outline: 'none'
+                }}
                 placeholder="Enter funding amount"
               />
             </div>
 
             {/* Action Prompt */}
             <div>
-              <label className="block text-sm font-medium text-[#4a5568] mb-1">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.25rem'
+              }}>
                 Action Prompt
               </label>
               <textarea
                 required
                 value={formData.actionPrompt}
                 onChange={(e) => setFormData(prev => ({ ...prev, actionPrompt: e.target.value }))}
-                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
-                rows="3"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.375rem',
+                  backgroundColor: '#ffffff',
+                  color: '#1a202c',
+                  outline: 'none',
+                  height: '6rem',
+                  resize: 'none'
+                }}
                 placeholder="What action should be taken based on the debate outcome?"
               />
             </div>
 
             {/* Debate Sides */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-[#4a5568]">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: '#1a202c'
+                }}>
                   Debate Sides
                 </label>
                 <button
                   type="button"
                   onClick={addSide}
-                  className="text-sm text-[#92400e] hover:text-[#78350f]"
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#92400e',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={e => e.target.style.color = '#78350f'}
+                  onMouseOut={e => e.target.style.color = '#92400e'}
                 >
                   + Add Side
                 </button>
               </div>
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {formData.sides.map((side) => (
-                  <div key={side.id} className="flex items-center gap-2">
+                  <div key={side.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input
                       type="text"
                       value={side.name}
                       onChange={(e) => updateSideName(side.id, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        outline: 'none'
+                      }}
                       placeholder="Enter side name"
                       required
                     />
@@ -387,7 +542,14 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                       <button
                         type="button"
                         onClick={() => removeSide(side.id)}
-                        className="text-[#ef4444] hover:text-[#dc2626]"
+                        style={{
+                          color: '#ef4444',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer'
+                        }}
+                        onMouseOver={e => e.target.style.color = '#dc2626'}
+                        onMouseOut={e => e.target.style.color = '#ef4444'}
                       >
                         Remove
                       </button>
@@ -398,15 +560,33 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
             </div>
 
             {/* Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label className="block text-sm font-medium text-[#4a5568] mb-1">
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: '#1a202c',
+                  marginBottom: '0.25rem'
+                }}>
                   Start Date
                 </label>
                 <DatePicker
                   selected={formData.startDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
+                  customInput={
+                    <input
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        outline: 'none'
+                      }}
+                    />
+                  }
                   dateFormat="yyyy-MM-dd HH:mm"
                   showTimeSelect
                   timeFormat="HH:mm"
@@ -416,13 +596,31 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-[#4a5568] mb-1">
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: '#1a202c',
+                  marginBottom: '0.25rem'
+                }}>
                   End Date
                 </label>
                 <DatePicker
                   selected={formData.endDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
+                  customInput={
+                    <input
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        outline: 'none'
+                      }}
+                    />
+                  }
                   dateFormat="yyyy-MM-dd HH:mm"
                   showTimeSelect
                   timeFormat="HH:mm"
@@ -435,23 +633,46 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
           </form>
         </div>
 
-        <div className="flex-none p-6 border-t border-[#e5e7eb] bg-[#f9fafb]">
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-2 text-[#4a5568] hover:text-[#1a202c] transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              form="create-debate-form"
-              type="submit"
-              className="px-4 py-2 bg-[#92400e] text-white rounded-md hover:bg-[#78350f] transition-colors"
-            >
-              Create Debate
-            </button>
-          </div>
+        <div style={{
+          padding: '1.5rem',
+          borderTop: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '1rem'
+        }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              padding: '0.5rem 1rem',
+              color: '#4a5568',
+              border: 'none',
+              backgroundColor: 'transparent',
+              cursor: 'pointer'
+            }}
+            onMouseOver={e => e.target.style.color = '#1a202c'}
+            onMouseOut={e => e.target.style.color = '#4a5568'}
+          >
+            Cancel
+          </button>
+          <button
+            form="create-debate-form"
+            type="submit"
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#92400e',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={e => e.target.style.backgroundColor = '#78350f'}
+            onMouseOut={e => e.target.style.backgroundColor = '#92400e'}
+          >
+            Create Debate
+          </button>
         </div>
       </div>
     </div>
