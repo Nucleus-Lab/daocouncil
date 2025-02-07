@@ -12,6 +12,10 @@ class ChatMessage:
     stance: Optional[str] = None
 
 @dataclass
+class GeneratePersonasRequest:
+    topic: str
+
+@dataclass
 class User:
     username: str
     user_address: str
