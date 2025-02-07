@@ -1,59 +1,130 @@
-import React from 'react';
-import characterSprite from '../assets/character.png';
-import bgImage from '../assets/bg.jpg';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import GameEngine from '../game/engine/GameEngine';
+import CourtroomScene from '../game/scenes/CourtroomScene';
+import JurorSprite from '../game/sprites/JurorSprite';
+import JudgeSprite from '../game/sprites/JudgeSprite';
+import { POSITIONS, SPRITE_WIDTH, SPRITE_HEIGHT } from '../game/constants/dimensions';
+import { JUROR_CONFIG, JUDGE_COMMANDS, VOTE_DELAY } from '../game/constants/game';
+import { BUTTON_STYLES } from '../game/constants/ui';
+import { logger } from '../game/utils/logger';
+import { ASSETS } from '../game/constants/assets';  // Import ASSETS instead of direct image import
 
-const CourtRoom = ({ jurorOpinions }) => {
-  const calculateVotePercentages = () => {
-    const totalScore = jurorOpinions.reduce((acc, opinion) => acc + opinion.score, 0);
-    const yesScore = jurorOpinions
-      .filter(opinion => opinion.vote === 'yes')
-      .reduce((acc, opinion) => acc + opinion.score, 0);
-    return (yesScore / totalScore) * 100;
-  };
+const CourtRoom = ({ onJurorVote }) => {
+    const canvasRef = useRef(null);
+    const engineRef = useRef(null);
+    const [isLoading, setIsLoading] = useState(true);
 
-  const percentage = calculateVotePercentages();
+    // Initialize game engine
+    useEffect(() => {
+        if (!canvasRef.current) return;
 
-  return (
-    <div className="relative h-full">
-      {/* Background Image */}
-      <img 
-        src={bgImage} 
-        alt="Virtual Courtroom" 
-        className="absolute inset-0 w-full h-full object-cover"
-      />
+        const initializeGame = () => {
+            // Set canvas size
+            canvasRef.current.width = POSITIONS.CANVAS_WIDTH;
+            canvasRef.current.height = POSITIONS.CANVAS_HEIGHT;
 
-      {/* Character Sprite */}
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-12 h-12 z-[5]">
-        <img 
-          src={characterSprite}
-          alt="Character"
-          className="w-full h-full object-cover"
-          style={{
-            imageRendering: 'pixelated',
-            transform: 'scale(1.75)'
-          }}
-        />
-      </div>
+            const engine = new GameEngine(canvasRef.current);
+            const scene = new CourtroomScene(engine);
 
-      {/* Inclination Bar Overlay */}
-      <div className="absolute bottom-0 left-0 right-0 z-10 bg-gray-900/90 py-1 px-2 backdrop-blur-sm">
-        <div className="flex items-center gap-1.5">
-          <div className="text-green-400 text-[10px] font-['Source_Code_Pro',monospace]">YES</div>
-          <div className="flex-1 h-1 bg-gray-800 overflow-hidden relative">
-            <div 
-              className="absolute inset-y-0 left-0 bg-green-500 transition-all duration-500"
-              style={{ width: `${percentage}%` }}
-            />
-            <div 
-              className="absolute inset-y-0 right-0 bg-red-500 transition-all duration-500"
-              style={{ width: `${100 - percentage}%`, left: `${percentage}%` }}
-            />
-          </div>
-          <div className="text-red-400 text-[10px] font-['Source_Code_Pro',monospace]">NO</div>
+            // Load and set background image
+            const bgImage = new Image();
+            bgImage.src = ASSETS.BACKGROUND;  // Use path from ASSETS
+            bgImage.onload = () => {
+                scene.setBackground(bgImage);
+                setIsLoading(false);
+                logger.info('Background image loaded successfully');
+            };
+            bgImage.onerror = (error) => {
+                logger.error('Error loading background image:', error);
+                setIsLoading(false);
+            };
+
+            engine.setScene(scene);
+            scene.initialize();
+
+            engineRef.current = engine;
+            return engine;
+        };
+
+        const setupSprites = (engine) => {
+            // Calculate positions for jurors
+            const totalWidth = SPRITE_WIDTH * 7;
+            const leftOffset = SPRITE_WIDTH * - 0.45;
+            const startX = (POSITIONS.CENTER.x - (totalWidth / 2)) - leftOffset;
+            const spacing = SPRITE_WIDTH * 1.28;
+            
+            // Adjust vertical positions for taller sprites
+            const judgeY = POSITIONS.CENTER.y - SPRITE_HEIGHT * 0.3;  // Adjusted for taller sprites
+            const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 1.5; // Adjusted for taller sprites
+
+            // Create and position judge - move left by adding an offset
+            const judgeXOffset = SPRITE_WIDTH * 0.03; // Adjust this value to move judge more/less left
+            const judge = new JudgeSprite(
+                POSITIONS.CENTER.x - (SPRITE_WIDTH/2) - judgeXOffset, // Subtract offset to move left
+                judgeY
+            );
+            engine.sprites.set('judge', judge);
+
+            // Create and position jurors
+            JUROR_CONFIG.forEach((juror) => {
+                const sprite = new JurorSprite(
+                    juror.id,
+                    startX + (spacing * juror.order),
+                    jurorY,
+                    juror.character
+                );
+                engine.sprites.set(juror.id, sprite);
+            });
+
+            logger.debug('Sprites positioned with new scale - Judge at Y:', judgeY, 'Jurors at Y:', jurorY);
+        };
+
+        const engine = initializeGame();
+        setupSprites(engine);
+        engine.start();
+
+        return () => engine.stop();
+    }, []);
+
+    // Memoize handleVote
+    const handleVote = useCallback((jurorId, vote) => {
+        if (!engineRef.current) return;
+        
+        // Map server juror index (0-4) to sprite ID (juror1-juror5)
+        const spriteId = `juror${parseInt(jurorId) + 1}`;
+        
+        // Animate only the specific juror
+        engineRef.current.handleJurorVote(spriteId, vote);
+    }, []); // Empty dependency array since it uses only refs
+
+    // Update effect with proper dependencies
+    useEffect(() => {
+        if (onJurorVote && handleVote) {
+            onJurorVote(handleVote);
+        }
+    }, [onJurorVote, handleVote]);  // Add both dependencies
+
+    const handleJudgeCommand = (command) => {
+        if (!engineRef.current) return;
+        engineRef.current.handleJudgeSpeak(command);
+    };
+
+    return (
+        <div className="relative w-full h-full bg-court-brown flex items-center justify-center">
+            {isLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-court-brown">
+                    <p className="text-white">Loading courtroom...</p>
+                </div>
+            )}
+            <div className="relative w-full h-full">
+                <canvas
+                    ref={canvasRef}
+                    className="w-full h-full"
+                    style={{ imageRendering: 'pixelated' }}
+                />
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 };
 
 export default CourtRoom;

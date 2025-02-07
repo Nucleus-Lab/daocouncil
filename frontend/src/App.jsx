@@ -1,26 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 
 // Components
 import Header from './components/Header';
 import CourtRoom from './components/CourtRoom';
-import UserAvatar from './components/UserAvatar';
 import Messages from './components/Messages';
 import JurorOpinions from './components/JurorOpinions';
+import WelcomePage from './components/WelcomePage';
+import CreateDebateForm from './components/CreateDebateForm';
+import JoinDebateForm from './components/JoinDebateForm';
 
 // Hooks
 import { useMessages } from './hooks/useMessages';
 import { useJurorOpinions } from './hooks/useJurorOpinions';
 
-const App = () => {
-  const {
-    messages,
-    setMessages,
-    currentMessage,
-    setCurrentMessage,
-    addMessage
-  } = useMessages();
+// Privy
+import { usePrivy } from '@privy-io/react-auth';
 
+const App = () => {
+  const { login, ready, authenticated, user } = usePrivy();
+  
+  // State for debate management
+  const [currentView, setCurrentView] = useState('welcome');
+  const [walletConnected, setWalletConnected] = useState(false);
+  const [walletAddress, setWalletAddress] = useState('');
+  const [currentDebateId, setCurrentDebateId] = useState('');
+  const [username, setUsername] = useState('');
+  const [debateSides, setDebateSides] = useState([
+    { id: '1', name: 'Side 1' },
+    { id: '2', name: 'Side 2' }
+  ]);
+  const [currentDebateInfo, setCurrentDebateInfo] = useState({}); 
+  const [messages, setMessages] = useState([]);
+  const [currentMessage, setCurrentMessage] = useState('');
+  const [userStance, setUserStance] = useState('');
+  const [replyingTo, setReplyingTo] = useState(null);
+  const demoWalletAddress = "0x1234...5678";
+
+  const { addMessage, loadMessages } = useMessages(walletAddress, username);
+
+  useEffect(() => {
+    if (ready && authenticated && user?.wallet?.address) {
+      setWalletConnected(true);
+      setWalletAddress(user.wallet.address);
+    } else {
+      setWalletConnected(false);
+      setWalletAddress('');
+    }
+  }, [ready, authenticated, user]);
+
+  // Existing state and hooks
   const {
     jurorOpinions,
     setJurorOpinions,
@@ -29,12 +58,31 @@ const App = () => {
   } = useJurorOpinions();
 
   const [currentRound, setCurrentRound] = useState(1);
-  const [userStance, setUserStance] = useState('');
-  const [walletConnected, setWalletConnected] = useState(false);
-  const demoWalletAddress = "0x1234...5678";
 
-  // Initialize with demo content
-  useEffect(() => {
+  // Add voting trends data
+  const [votingTrends, setVotingTrends] = useState([
+    { time: '4:00 PM', yes: 0, no: 0 },
+    { time: '4:02 PM', yes: 2, no: 1 },
+    { time: '4:04 PM', yes: 3, no: 2 },
+    { time: '4:06 PM', yes: 4, no: 4 },
+    { time: '4:08 PM', yes: 6, no: 5 },
+    { time: '4:10 PM', yes: 8, no: 6 },
+    { time: '4:12 PM', yes: 10, no: 7 },
+    { time: '4:14 PM', yes: 12, no: 8 }
+  ]);
+
+  const [handleJurorVote, setHandleJurorVote] = useState(null);
+
+  // Add AI voting trends state
+  const [aiVotingTrends, setAiVotingTrends] = useState([]);
+
+  // Memoize the callback
+  const onJurorVote = useCallback((handleVote) => {
+    setHandleJurorVote(() => handleVote);
+  }, []); // Empty dependency array since it doesn't depend on any values
+
+  // Initialize with demo content when joining existing debate
+  const initializeDemoContent = () => {
     setMessages([
       {
         id: 1,
@@ -165,58 +213,273 @@ const App = () => {
         score: 65
       }
     ]);
-  }, []);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!currentMessage.trim()) return;
-    addMessage(currentMessage, userStance, currentRound);
   };
 
-  const handleConnectWallet = () => {
-    setWalletConnected(true);
+  // Update voting trends when new messages are added
+  useEffect(() => {
+    // 初始化或更新投票趋势
+    const updateVotingTrends = () => {
+      if (!messages.length) return;
+
+      // 按时间排序消息
+      const sortedMessages = [...messages].sort((a, b) => 
+        new Date(a.timestamp) - new Date(b.timestamp)
+      );
+
+      // 计算每个时间点的累计投票
+      const newTrends = [];
+      let yesCount = 0;
+      let noCount = 0;
+
+      sortedMessages.forEach(msg => {
+        if (msg.stance === 'yes') yesCount++;
+        if (msg.stance === 'no') noCount++;
+        
+        newTrends.push({
+          time: msg.timestamp,
+          yes: yesCount,
+          no: noCount
+        });
+      });
+
+      // 更新投票趋势
+      if (newTrends.length > 0) {
+        setVotingTrends(newTrends);
+      }
+    };
+
+    updateVotingTrends();
+  }, [messages]);
+
+  const handleConnectWallet = async () => {
+    try {
+      await login();
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+    }
   };
 
-  return (
-    <div className="fixed inset-0 flex flex-col bg-gray-100">
-      <Header 
-        walletConnected={walletConnected}
-        demoWalletAddress={demoWalletAddress}
-        onConnectWallet={handleConnectWallet}
-      />
+  const handleCreateDebateSubmit = async (debateInfo) => {
+    try {
+      // 先设置辩论信息
+      setCurrentDebateId(debateInfo.discussion_id.toString());
+      setCurrentDebateInfo(debateInfo);  
+      setDebateSides(debateInfo.sides.map((side, index) => ({
+        id: (index + 1).toString(),
+        name: side
+      })));
+      
+      // 设置初始消息
+      const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
+      await addMessage(initialMessage, null, 0, null, debateInfo);
 
-      <main className="flex-1 flex min-h-0 p-1 gap-1">
-        {/* Left Column */}
-        <div className="w-[50%] flex flex-col gap-1 min-h-0">
-          {/* Court Room */}
-          <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
-            <CourtRoom jurorOpinions={jurorOpinions} />
-          </div>
-          
-          {/* AI Jurors Opinions */}
-          <div className="h-[45%] min-h-0 flex-1">
-            <JurorOpinions 
-              jurorOpinions={jurorOpinions} 
-              isJurorOpinionsExpanded={isJurorOpinionsExpanded} 
-              setIsJurorOpinionsExpanded={setIsJurorOpinionsExpanded} 
-            />
-          </div>
-        </div>
+      // 加载历史消息
+      const response = await fetch(`http://localhost:8000/msg/${debateInfo.discussion_id}`);
+      if (!response.ok) {
+        throw new Error('Failed to load messages');
+      }
+      const messages = await response.json();
+      let messageCounter = 0; // 添加计数器以确保唯一ID
+      setMessages(messages.map(msg => ({
+        id: msg.id || `${Date.now()}-${messageCounter++}`, // 使用计数器确保唯一性
+        text: msg.message,
+        sender: msg.user_address,
+        username: msg.username || 'Anonymous',
+        timestamp: new Date(msg.timestamp).toLocaleTimeString(),
+        stance: msg.stance || 'neutral',
+        round: msg.round || 1
+      })));
 
-        {/* Right Column - Discord-like Chat */}
-        <div className="w-[50%] bg-white shadow-lg flex flex-col min-h-0">
-          <Messages 
-            messages={messages} 
-            currentMessage={currentMessage} 
-            setCurrentMessage={setCurrentMessage} 
-            handleSubmit={handleSubmit} 
-            userStance={userStance} 
-            setUserStance={setUserStance} 
+      setCurrentView('debate');
+    } catch (error) {
+      console.error('Error in handleCreateDebateSubmit:', error);
+    }
+  };
+
+  const handleJoinDebate = async ({ debateId, username: chosenUsername, debateInfo }) => {
+    setCurrentDebateId(debateId);
+    setUsername(chosenUsername);
+    setCurrentDebateInfo(debateInfo);
+
+    // 加载历史消息
+    try {
+      const response = await fetch(`http://localhost:8000/msg/${debateId}`);
+      if (!response.ok) {
+        throw new Error('Failed to load messages');
+      }
+      const messages = await response.json();
+      let messageCounter = 0; // 添加计数器以确保唯一ID
+      setMessages(messages.map(msg => ({
+        id: msg.id || `${Date.now()}-${messageCounter++}`, // 使用计数器确保唯一性
+        text: msg.message,
+        sender: msg.user_address,
+        username: msg.username || 'Anonymous',
+        timestamp: new Date(msg.timestamp).toLocaleTimeString(),
+        stance: msg.stance || 'neutral',
+        round: msg.round || 1
+      })));
+    } catch (error) {
+      console.error('Error loading messages:', error);
+    }
+
+    setCurrentView('debate');
+  };
+
+  const handleSubmitMessage = async (messageData) => {
+    try {
+      const response = await addMessage(
+        messageData.text,
+        messageData.stance,
+        currentRound,
+        messageData.replyTo,
+        currentDebateInfo
+      );
+
+      // Add new message to list
+      const newMessage = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        text: messageData.text,
+        sender: walletAddress,
+        username: username,
+        timestamp: new Date().toLocaleTimeString(),
+        stance: messageData.stance,
+        round: currentRound,
+        replyTo: messageData.replyTo
+      };
+      
+      setMessages(prevMessages => [...prevMessages, newMessage]);
+
+      // Handle juror opinions from server response
+      if (response && typeof response === 'object') {
+        const timestamp = new Date().toLocaleTimeString();
+        
+        Object.entries(response).forEach(([jurorId, data]) => {
+          const newOpinion = {
+            id: `${Date.now()}-${jurorId}`, // Add unique ID for each opinion
+            jurorId,
+            reasoning: data.reasoning,
+            result: data.result,
+            timestamp: timestamp
+          };
+
+          // Append new opinion instead of replacing
+          setJurorOpinions(prevOpinions => ({
+            ...prevOpinions,
+            [newOpinion.id]: newOpinion
+          }));
+
+          // Trigger voting animation for the specific juror
+          if (handleJurorVote) {
+            handleJurorVote(jurorId, data.result);
+          }
+        });
+
+        // Update AI voting trends
+        setAiVotingTrends(prevTrends => [
+          ...prevTrends,
+          {
+            time: timestamp,
+            votes: Object.values(response).reduce((acc, curr) => {
+              acc[curr.result] = (acc[curr.result] || 0) + 1;
+              return acc;
+            }, {})
+          }
+        ]);
+      }
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  };
+
+  // Render different views based on currentView state
+  const renderView = () => {
+    switch (currentView) {
+      case 'welcome':
+        return (
+          <WelcomePage
+            onCreateDebate={() => setCurrentView('create')}
+            onJoinDebate={() => setCurrentView('joinForm')}
+            isWalletConnected={walletConnected}
+            walletAddress={walletAddress}
+            onConnectWallet={handleConnectWallet}
           />
-        </div>
-      </main>
-    </div>
-  );
+        );
+      case 'create':
+        return (
+          <CreateDebateForm
+            onSubmit={handleCreateDebateSubmit}
+            onCancel={() => setCurrentView('welcome')}
+            walletAddress={walletAddress}
+          />
+        );
+      case 'joinForm':
+        return (
+          <JoinDebateForm
+            onSubmit={handleJoinDebate}
+            onCancel={() => setCurrentView('welcome')}
+            walletAddress={walletAddress}
+          />
+        );
+      case 'debate':
+        return (
+          <div className="fixed inset-0 flex flex-col bg-gray-100">
+            <Header 
+              walletConnected={walletConnected}
+              walletAddress={walletAddress}
+              onConnectWallet={handleConnectWallet}
+              debateId={currentDebateId}
+            />
+
+            <main className="flex-1 flex min-h-0 p-1 gap-1">
+              {/* Left Column */}
+              <div className="w-[50%] flex flex-col gap-1 min-h-0">
+                {/* Court Room */}
+                <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
+                  <CourtRoom onJurorVote={onJurorVote} />
+                </div>
+                
+                {/* AI Jurors Opinions */}
+                <div className="h-[45%] min-h-0 flex-1">
+                  <JurorOpinions 
+                    jurorOpinions={jurorOpinions} 
+                    isJurorOpinionsExpanded={isJurorOpinionsExpanded} 
+                    setIsJurorOpinionsExpanded={setIsJurorOpinionsExpanded}
+                    votingTrends={votingTrends}
+                    messages={messages.map(msg => ({
+                      ...msg,
+                      replyTo: msg.replyTo ? messages.find(m => m.id === msg.replyTo.id) : null
+                    }))}
+                    debateSides={debateSides}
+                    aiVotingTrends={aiVotingTrends}
+                  />
+                </div>
+              </div>
+
+              {/* Right Column - Discord-like Chat */}
+              <div className="w-[50%] bg-white shadow-lg flex flex-col min-h-0">
+                <Messages 
+                  messages={messages.map(msg => ({
+                    ...msg,
+                    replyTo: msg.replyTo ? messages.find(m => m.id === msg.replyTo.id) : null
+                  }))}
+                  currentMessage={currentMessage}
+                  setCurrentMessage={setCurrentMessage}
+                  onSubmit={handleSubmitMessage}
+                  userStance={userStance}
+                  setUserStance={setUserStance}
+                  debateSides={debateSides}
+                />
+              </div>
+            </main>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return renderView();
 };
 
 export default App;
