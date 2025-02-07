@@ -231,12 +231,12 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
   return (
     <div className="fixed inset-0 bg-[#00000080] flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+      <div className="bg-[#ffffff] rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         <div className="flex-none p-6 border-b border-[#e5e7eb]">
           <h2 className="text-2xl font-bold text-[#4a5568]">Create New Debate</h2>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6 bg-white">
+        <div className="flex-1 overflow-y-auto p-6 bg-[#ffffff]">
           <form onSubmit={handleSubmit} id="create-debate-form" className="space-y-6">
             {/* Debate ID */}
             <div className="bg-[#fff8e1] p-4 rounded-md">
@@ -272,7 +272,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 required
                 value={formData.topic}
                 onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
-                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
+                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
                 placeholder="Enter the topic for debate"
               />
             </div>
@@ -304,7 +304,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                       onChange={(e) => handleJurorPersonaChange(juror.id, e.target.value)}
                       onFocus={() => handleJurorFocus(juror.id)}
                       placeholder={`Juror ${index + 1} Persona Description`}
-                      className={`flex-1 p-2 border border-[#e5e7eb] rounded focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c] transition-all duration-300 ease-in-out ${
+                      className={`flex-1 p-2 border border-[#e5e7eb] rounded focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af] transition-all duration-300 ease-in-out ${
                         juror.expanded ? 'h-32' : 'h-10'
                       }`}
                       style={{
@@ -332,7 +332,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                   const funding = value === '' ? '' : Number(parseFloat(value).toFixed(18));
                   setFormData(prev => ({ ...prev, funding }));
                 }}
-                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
+                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
                 placeholder="Enter funding amount"
               />
             </div>
@@ -346,7 +346,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 required
                 value={formData.actionPrompt}
                 onChange={(e) => setFormData(prev => ({ ...prev, actionPrompt: e.target.value }))}
-                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
+                className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
                 rows="3"
                 placeholder="What action should be taken based on the debate outcome?"
               />
@@ -373,7 +373,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                       type="text"
                       value={side.name}
                       onChange={(e) => updateSideName(side.id, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
+                      className="flex-1 px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
                       placeholder="Enter side name"
                       required
                     />
@@ -400,7 +400,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 <DatePicker
                   selected={formData.startDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
+                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
                   dateFormat="yyyy-MM-dd HH:mm"
                   showTimeSelect
                   timeFormat="HH:mm"
@@ -416,7 +416,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 <DatePicker
                   selected={formData.endDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-white text-[#1a202c]"
+                  className="w-full px-3 py-2 border border-[#e5e7eb] rounded-md focus:outline-none focus:ring-2 focus:ring-[#92400e] bg-[#ffffff] text-[#1a202c] placeholder-[#9ca3af]"
                   dateFormat="yyyy-MM-dd HH:mm"
                   showTimeSelect
                   timeFormat="HH:mm"

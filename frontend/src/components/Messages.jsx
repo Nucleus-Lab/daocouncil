@@ -12,6 +12,7 @@ const Messages = ({
 }) => {
   const [replyTo, setReplyTo] = useState(null);
   const messageInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -52,6 +53,22 @@ const Messages = ({
       setReplyTo(null);
     }
   };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  // 在消息列表更新时滚动到底部
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // 在当前消息更新时滚动到底部
+  useEffect(() => {
+    if (currentMessage) {
+      scrollToBottom();
+    }
+  }, [currentMessage]);
 
   return (
     <div className="h-full flex flex-col p-2 bg-gradient-to-br from-[#fdf6e3] to-[#f5e6d3]">
@@ -149,6 +166,7 @@ const Messages = ({
             </div>
           </div>
         ))}
+        <div ref={messagesEndRef} /> {/* 添加一个空的div作为滚动目标 */}
       </div>
 
       {/* Message Input */}
