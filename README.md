@@ -33,6 +33,7 @@ Traditional DAO voting mechanisms often favor large token holders, undermining f
 ## Deployed URLs
 
 Frontend: to be deployed
+
 Backend: https://daocouncil-backend-service.onrender.com/
 
 ## Installation
@@ -63,3 +64,6 @@ Backend: Python, Node.js
 AI Agents: CDP AgentKit, Autonome Altlayer, Privy Server Wallet
 
 Blockchain: Solidity Smart Contracts
+
+
+
