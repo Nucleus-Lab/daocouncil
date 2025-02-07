@@ -11,14 +11,14 @@ import asyncio
 
 # custom modules
 from backend.database import SessionLocal, Base, engine
-from backend.data_structure import ChatMessage, User, Debate, Side
+from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest
 from backend.database.chat_message import create_chat_message, get_chat_history
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate
 
 
-from backend.agents.juror import Juror
+from backend.agents.juror import Juror, generate_juror_persona
 
 logger = logging.getLogger()
 
@@ -349,6 +349,17 @@ def return_juror_results(discussion_id: int):
         raise HTTPException(status_code=500, detail="Error retrieving juror results")
     finally:
         db.close()
+
+@app.get("/generate_personas")
+def generate_personas(request: GeneratePersonasRequest):
+    """Generate a list of diverse juror personas"""
+    try:
+        topic = request.topic
+        personas = generate_juror_persona(topic)
+        return {"personas": personas}
+    except Exception as e:
+        logger.error(f"Error generating personas: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error generating juror personas")
 
 @app.websocket("/ws/{debate_id}/{client_id}")
 async def websocket_endpoint(websocket: WebSocket, debate_id: str, client_id: str):
