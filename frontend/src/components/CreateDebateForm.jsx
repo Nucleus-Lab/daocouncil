@@ -385,7 +385,11 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                   selected={formData.startDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-                  dateFormat="yyyy-MM-dd"
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  showTimeSelect
+                  timeFormat="HH:mm"
+                  timeIntervals={60}
+                  timeCaption="Time"
                   minDate={new Date()}
                 />
               </div>
@@ -397,7 +401,11 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                   selected={formData.endDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-                  dateFormat="yyyy-MM-dd"
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  showTimeSelect
+                  timeFormat="HH:mm"
+                  timeIntervals={60}
+                  timeCaption="Time"
                   minDate={formData.startDate}
                 />
               </div>
