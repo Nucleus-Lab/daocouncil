@@ -16,8 +16,8 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Store agent instances
-agent_instances = {}
+# Create single judge instance
+judge_agent = JudgeAgent()
 
 class ChatRequest(BaseModel):
     """Request model for chat endpoint."""
@@ -31,24 +31,10 @@ class ChatResponse(BaseModel):
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
-    """Chat with the judge agent for a specific debate.
-    
-    If the agent doesn't exist for the debate, it will be created.
-    """
+    """Chat with the judge agent for a specific debate."""
     try:
-        # Get or create agent instance
-        if request.debate_id not in agent_instances:            
-            logger.info(f"Creating new agent for debate: {request.debate_id}")
-            agent_instances[request.debate_id] = JudgeAgent(
-                debate_id=request.debate_id
-            )
-        
-        # Get agent instance
-        agent = agent_instances[request.debate_id]
-        
-        # Process message through agent
-        logger.info(f"Processing message for debate {request.debate_id}")
-        response = agent.chat(request.message)
+        logger.info(f"Processing chat request for debate {request.debate_id}")
+        response = judge_agent.chat(request.debate_id, request.message)
         
         return ChatResponse(
             debate_id=request.debate_id,
