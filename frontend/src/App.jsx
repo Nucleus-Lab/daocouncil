@@ -414,8 +414,13 @@ const App = () => {
         [newOpinion.id]: newOpinion
       }));
 
+      console.log('Juror response:', newOpinion);
+      console.log('Juror votes:', data.result);
+      console.log('handleJurorVote:', handleJurorVote);
+
       // Trigger voting animation
       if (handleJurorVote) {
+        console.log('Triggering voting animation');
         handleJurorVote(jurorId, data.result);
       }
     });
@@ -435,6 +440,9 @@ const App = () => {
 
   // Handle judge messages
   const handleJudgeMessage = useCallback((messageData) => {
+    console.log('handleJudgeMessage messageData:', messageData);
+    console.log('handleJudgeCommand:', handleJudgeCommand);
+    
     if (!handleJudgeCommand) return;
     
     const messageId = messageData.id;
