@@ -67,33 +67,46 @@ const Messages = ({
       {/* Pinned Message */}
       {messages[0] && (
         <div className="flex-none mb-3 bg-gradient-to-br from-[#fdf6e3] to-[#f5e6d3] rounded-lg shadow-sm p-3">
-          <div className="flex gap-3">
-            <UserAvatar name="Moderator" size="small" />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#d4a762]" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-                  </svg>
-                  <span className="text-xs font-medium text-[#d4a762]">PINNED</span>
-                  <span className="font-semibold text-[#2c1810]">Moderator</span>
-                  <span className="text-xs text-[#6b4423]">{messages[0]?.timestamp}</span>
-                </div>
-                <button 
-                  onClick={() => setIsPinnedMessageExpanded(!isPinnedMessageExpanded)}
-                  className="text-[#6b4423] hover:text-[#2c1810] transition-colors"
-                >
-                  <svg className={`w-5 h-5 transform transition-transform ${isPinnedMessageExpanded ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
+        <div className="flex gap-3">
+          <UserAvatar name="Moderator" size="small" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-[#d4a762]" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                </svg>
+                <span className="text-xs font-medium text-[#d4a762]">PINNED</span>
+                <span className="font-semibold text-[#2c1810]">Moderator</span>
+                <span className="text-xs text-[#6b4423]">{messages[0]?.timestamp}</span>
               </div>
-              {isPinnedMessageExpanded && (
-                <p className="text-sm text-[#4a3223] mt-1.5 leading-relaxed">{messages[0]?.text}</p>
-              )}
+              <button 
+                onClick={() => setIsPinnedMessageExpanded(!isPinnedMessageExpanded)}
+                className="text-[#6b4423] hover:text-[#2c1810] transition-colors"
+              >
+                <svg className={`w-5 h-5 transform transition-transform ${isPinnedMessageExpanded ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
+            {isPinnedMessageExpanded && messages[0] && (
+              <div className="text-sm text-[#4a3223] mt-1.5 space-y-2 flex-1">
+                {messages[0].text && (
+                  <div className="space-y-1">
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">Debate Topic:</span>
+                      <span className="text-[#2c1810]">{messages[0].text.split('\nAction:')[0]?.replace(/^(Topic:|Debate Topic:)/i, '').trim()}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">Action:</span>
+                      <span className="text-[#2c1810]">{messages[0].text.split('\nAction:')[1]?.trim()}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
+      </div>
       )}
 
       {/* Chat Messages */}
