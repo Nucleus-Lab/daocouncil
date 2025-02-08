@@ -17,6 +17,10 @@ from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate, DebateDB
 from backend.agents.juror import Juror, generate_juror_persona
+from backend.debate_manager.debate_manager import DebateManager
+
+# Constants
+JUDGE_API_URL = os.getenv("JUDGE_API_URL", "http://localhost:8001")
 
 logger = logging.getLogger()
 
@@ -292,17 +296,28 @@ def get_user_info(user_address: str):
 def post_debate(request: Debate):
     db = SessionLocal()
     try:
-        # 生成新的 discussion_id
+        # Generate new discussion_id
         latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
         discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
         
-        # 创建陪审团成员
+        # Initialize debate manager and create wallets
+        logger.info(f"Initializing DebateManager for debate {discussion_id}")
+        debate_manager = DebateManager(debate_id=str(discussion_id), api_url=JUDGE_API_URL)
+        
+        try:
+            wallet_info = debate_manager.initialize_debate()
+            logger.info(f"Debate wallets initialized: {wallet_info}")
+        except Exception as e:
+            logger.error(f"Error initializing debate wallets: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error initializing debate wallets: {str(e)}")
+        
+        # Create jurors
         juror_ids = []
         for idx, persona in enumerate(request.jurors):
             create_juror(db=db, discussion_id=discussion_id, juror_id=idx, persona=persona)
             juror_ids.append(idx)
 
-        # 创建辩论
+        # Create debate
         try:
             new_debate = create_debate(
                 db=db,
@@ -315,7 +330,8 @@ def post_debate(request: Debate):
                 creator_address=request.creator_address
             )
             db.commit()
-            # 返回完整的辩论信息
+            
+            # Return complete debate information including wallet addresses
             return {
                 "discussion_id": new_debate.discussion_id,
                 "topic": new_debate.topic,
@@ -325,10 +341,14 @@ def post_debate(request: Debate):
                 "jurors": request.jurors,
                 "creator_address": new_debate.creator_address,
                 "creator_username": request.creator_username,  # 添加创建者用户名
-                "created_at": new_debate.created_at.isoformat()  # 添加创建时间
+                "created_at": new_debate.created_at.isoformat(),  # 添加创建时间
+                "privy_wallet_address": wallet_info['privy_wallet_address'],
+                "privy_wallet_id": wallet_info['privy_wallet_id'],
+                "cdp_wallet_address": wallet_info['cdp_wallet_address']
             }
         except Exception as e:
             logger.error(f"Error in create_debate: {str(e)}")
+
             raise HTTPException(status_code=500, detail=f"Error creating debate: {str(e)}")
             
     except Exception as e:

@@ -123,6 +123,21 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
 
       const result = await response.json();
       console.log('Debate created successfully:', result);
+      console.log('Debate details:');
+      console.log('- Discussion ID:', result.discussion_id);
+      console.log('- Topic:', result.topic);
+      console.log('- Funding:', result.funding);
+      console.log('- Action:', result.action);
+      console.log('Wallet Information:');
+      console.log('- CDP Wallet Address:', result.cdp_wallet_address);
+      console.log('- Privy Wallet Address:', result.privy_wallet_address);
+      console.log('- Privy Wallet ID:', result.privy_wallet_id);
+      console.log('Participants:');
+      console.log('- Creator:', result.creator_username, '(', result.creator_address, ')');
+      console.log('- Jurors:', result.jurors);
+      console.log('- Sides:', result.sides);
+      console.log('Timestamps:');
+      console.log('- Created at:', result.created_at);
       
       // 确保结果包含所需的字段
       if (!result || !result.discussion_id) {
