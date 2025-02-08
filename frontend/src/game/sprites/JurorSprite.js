@@ -6,6 +6,7 @@ import {
     BASE_SPRITE_HEIGHT,
     SPRITE_SCALE 
 } from '../constants/dimensions';
+import { SPRITE_IMAGES } from '../constants/sprites';
 
 class JurorSprite {
     constructor(id, initialX, initialY, characterId = 'F_01') {
@@ -31,7 +32,7 @@ class JurorSprite {
         
         // Load sprite image
         this.sprite = new Image();
-        this.sprite.src = `src/assets/32_Characters/cropped/${characterId}/front_idle.png`;
+        this.sprite.src = SPRITE_IMAGES[characterId];
         
         // Debug: Log when sprite is loaded
         this.sprite.onload = () => {

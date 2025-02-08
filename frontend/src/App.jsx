@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import { API_CONFIG } from './config/api';
+import LoadingScreen from './components/LoadingScreen';
 
 // Components
 import Header from './components/Header';
@@ -28,8 +29,15 @@ const App = () => {
   const [walletConnected, setWalletConnected] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
   const [currentDebateId, setCurrentDebateId] = useState('');
-  const [username, setUsername] = useState('');
-  const [usernameSet, setUsernameSet] = useState(false);
+  const [username, setUsername] = useState(() => {
+    // 从 localStorage 读取缓存的用户名
+    const cachedUsername = localStorage.getItem('username');
+    return cachedUsername || '';
+  });
+  const [usernameSet, setUsernameSet] = useState(() => {
+    // 从 localStorage 读取缓存的状态
+    return !!localStorage.getItem('username');
+  });
   const [debateSides, setDebateSides] = useState([
     { id: '1', name: 'Side 1' },
     { id: '2', name: 'Side 2' }
@@ -40,6 +48,7 @@ const App = () => {
   const [userStance, setUserStance] = useState('');
   const [replyingTo, setReplyingTo] = useState(null);
   const demoWalletAddress = "0x1234...5678";
+  const [isLoading, setIsLoading] = useState(false);
 
   const { addMessage, loadMessages } = useMessages(walletAddress, username);
 
@@ -47,13 +56,27 @@ const App = () => {
     if (ready && authenticated && user?.wallet?.address) {
       setWalletConnected(true);
       setWalletAddress(user.wallet.address);
-      // Check if user has a username set
-      checkUsername(user.wallet.address);
+      
+      // 先检查本地缓存
+      const cachedUsername = localStorage.getItem('username');
+      const cachedWallet = localStorage.getItem('walletAddress');
+      
+      if (cachedUsername && cachedWallet === user.wallet.address) {
+        // 如果缓存存在且钱包地址匹配，直接使用缓存的用户名
+        setUsername(cachedUsername);
+        setUsernameSet(true);
+      } else {
+        // 如果没有缓存或钱包地址不匹配，则查询后端
+        checkUsername(user.wallet.address);
+      }
     } else {
       setWalletConnected(false);
       setWalletAddress('');
       setUsername('');
       setUsernameSet(false);
+      // 清除缓存
+      localStorage.removeItem('username');
+      localStorage.removeItem('walletAddress');
     }
   }, [ready, authenticated, user]);
 
@@ -65,6 +88,9 @@ const App = () => {
         if (data.username) {
           setUsername(data.username);
           setUsernameSet(true);
+          // 缓存用户名和钱包地址
+          localStorage.setItem('username', data.username);
+          localStorage.setItem('walletAddress', address);
         }
       }
     } catch (error) {
@@ -75,6 +101,9 @@ const App = () => {
   const handleUsernameSet = (newUsername) => {
     setUsername(newUsername);
     setUsernameSet(true);
+    // 缓存用户名和钱包地址
+    localStorage.setItem('username', newUsername);
+    localStorage.setItem('walletAddress', walletAddress);
   };
 
   // Existing state and hooks
@@ -85,7 +114,7 @@ const App = () => {
     setIsJurorOpinionsExpanded,
     fetchJurorResponse,
     fetchJurorHistory,
-    isLoading
+    isLoading: isJurorLoading
   } = useJurorOpinions();
 
   const [currentRound, setCurrentRound] = useState(1);
@@ -300,8 +329,12 @@ const App = () => {
       }
 
       // 先设置辩论信息
-      setCurrentDebateId(debateInfo.discussion_id.toString());
+      const debateId = debateInfo.discussion_id.toString();
+      setCurrentDebateId(debateId);
       setCurrentDebateInfo(debateInfo);
+      
+      // 更新 URL
+      window.history.pushState({}, '', `/debate/${debateId}`);
       
       // 设置辩论双方
       const formattedSides = debateInfo.sides.map((side, index) => ({
@@ -315,7 +348,7 @@ const App = () => {
       await addMessage(initialMessage, null, 0, null, debateInfo);
 
       // 加载历史消息
-      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateInfo.discussion_id}`);
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateId}`);
       if (!response.ok) {
         throw new Error('Failed to load messages');
       }
@@ -341,8 +374,12 @@ const App = () => {
   };
 
   const handleJoinDebate = async ({ debateId, debateInfo }) => {
+    setIsLoading(true);
     setCurrentDebateId(debateId);
     setCurrentDebateInfo(debateInfo);
+
+    // 更新 URL
+    window.history.pushState({}, '', `/debate/${debateId}`);
 
     // 加载历史消息
     try {
@@ -351,9 +388,9 @@ const App = () => {
         throw new Error('Failed to load messages');
       }
       const messages = await response.json();
-      let messageCounter = 0; // 添加计数器以确保唯一ID
+      let messageCounter = 0;
       setMessages(messages.map(msg => ({
-        id: msg.id || `${Date.now()}-${messageCounter++}`, // 使用计数器确保唯一性
+        id: msg.id || `${Date.now()}-${messageCounter++}`,
         text: msg.message,
         sender: msg.user_address,
         username: msg.username || 'Anonymous',
@@ -361,13 +398,20 @@ const App = () => {
         stance: msg.stance || 'neutral',
         round: msg.round || 1
       })));
+
+      // 获取 juror opinions 历史记录
+      await fetchJurorHistory(debateId);
     } catch (error) {
       console.error('Error loading messages:', error);
+      setIsLoading(false);
+      return;
     }
+    setIsLoading(false);
+    setCurrentView('debate');
+  };
 
-    // 获取 juror opinions 历史记录
-    await fetchJurorHistory(debateId);
-
+  const handleLoadComplete = () => {
+    setIsLoading(false);
     setCurrentView('debate');
   };
 
@@ -458,6 +502,42 @@ const App = () => {
       }
     };
   }, [currentDebateId, currentView, isConnected, connectWebSocket, disconnectWebSocket]);
+
+  // 检查 URL 中的 debate ID
+  useEffect(() => {
+    const checkUrlForDebateId = async () => {
+      const path = window.location.pathname;
+      const match = path.match(/^\/debate\/(\d+)$/);
+      
+      if (match && match[1]) {
+        const debateId = match[1];
+        try {
+          // 获取辩论信息
+          const response = await fetch(`${API_CONFIG.BACKEND_URL}/debate/${debateId}`);
+          if (!response.ok) {
+            throw new Error('Debate not found');
+          }
+          const { debate, jurors } = await response.json();
+          
+          // 加入辩论
+          await handleJoinDebate({
+            debateId,
+            debateInfo: {
+              ...debate,
+              jurors
+            }
+          });
+        } catch (error) {
+          console.error('Error loading debate from URL:', error);
+          // 如果加载失败，重定向到首页
+          window.history.pushState({}, '', '/');
+          setCurrentView('welcome');
+        }
+      }
+    };
+
+    checkUrlForDebateId();
+  }, []);  // 只在组件挂载时运行一次
 
   // Modify handleSubmitMessage to only handle message sending
   const handleSubmitMessage = async (messageData) => {
@@ -570,6 +650,15 @@ const App = () => {
         return null;
     }
   };
+
+  if (isLoading) {
+    return (
+      <LoadingScreen 
+        onLoadComplete={handleLoadComplete} 
+        debateId={currentDebateId}
+      />
+    );
+  }
 
   return renderView();
 };

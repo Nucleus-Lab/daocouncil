@@ -117,6 +117,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          discussion_id: parseInt(formData.debateId),  // 添加 discussion_id
           topic: formData.topic,
           action: formData.actionPrompt,
           creator_address: walletAddress,
