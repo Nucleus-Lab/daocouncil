@@ -22,6 +22,7 @@ export const useMessages = (walletAddress, username) => {
       const messageData = {
         discussion_id: discussionId,
         user_address: walletAddress,
+        username: username,  // 添加 username
         message: text,
         stance: stance === '' ? null : stance  // 明确处理空字符串的情况
       };

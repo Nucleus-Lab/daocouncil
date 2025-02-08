@@ -15,9 +15,7 @@ from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePers
 from backend.database.chat_message import create_chat_message, get_chat_history
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_all_juror_results, create_juror_result
-from backend.database.debate import create_debate, get_debate
-
-
+from backend.database.debate import create_debate, get_debate, DebateDB
 from backend.agents.juror import Juror, generate_juror_persona
 
 logger = logging.getLogger()
@@ -131,6 +129,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
             db=db,
             discussion_id=request.discussion_id,
             user_address=request.user_address,
+            username=request.username,  # 添加 username
             message=request.message,
             stance=request.stance
         )
@@ -143,6 +142,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
                 "id": new_message.id,
                 "discussion_id": new_message.discussion_id,
                 "user_address": new_message.user_address,
+                "username": new_message.username,  # 添加 username
                 "message": new_message.message,
                 "stance": new_message.stance,
                 "timestamp": new_message.created_at.isoformat()
@@ -265,18 +265,25 @@ def post_user(request: User):
         new_user = create_user(
             db=db, 
             username=request.username, 
-            user_address=request.user_address,
-            debate_id=request.debate_id
+            user_address=request.user_address
         )
-        db.commit()
-        return {
-            "username": new_user.username,
-            "user_address": new_user.user_address,
-            "debate_id": new_user.debate_id
-        }
+        return new_user.to_dict()
     except Exception as e:
-        db.rollback()
         logger.error(f"Error in post_user: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.get("/user/{user_address}")
+def get_user_info(user_address: str):
+    db = SessionLocal()
+    try:
+        user = get_user(db, user_address)
+        if user:
+            return user.to_dict()
+        raise HTTPException(status_code=404, detail="User not found")
+    except Exception as e:
+        logger.error(f"Error getting user info: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
@@ -285,17 +292,21 @@ def post_user(request: User):
 def post_debate(request: Debate):
     db = SessionLocal()
     try:
+        # 生成新的 discussion_id
+        latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
+        discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
+        
         # 创建陪审团成员
         juror_ids = []
         for idx, persona in enumerate(request.jurors):
-            create_juror(db=db, discussion_id=request.discussion_id, juror_id=idx, persona=persona)
+            create_juror(db=db, discussion_id=discussion_id, juror_id=idx, persona=persona)
             juror_ids.append(idx)
 
         # 创建辩论
         try:
             new_debate = create_debate(
                 db=db,
-                discussion_id=request.discussion_id,
+                discussion_id=discussion_id,
                 topic=request.topic,
                 sides=request.sides,
                 juror_ids=juror_ids,
@@ -312,7 +323,9 @@ def post_debate(request: Debate):
                 "action": new_debate.action,
                 "funding": new_debate.funding,
                 "jurors": request.jurors,
-                "creator_address": new_debate.creator_address
+                "creator_address": new_debate.creator_address,
+                "creator_username": request.creator_username,  # 添加创建者用户名
+                "created_at": new_debate.created_at.isoformat()  # 添加创建时间
             }
         except Exception as e:
             logger.error(f"Error in create_debate: {str(e)}")

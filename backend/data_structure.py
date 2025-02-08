@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional, List
 from pydantic import BaseModel
+
 @dataclass
 class ChatMessage:
     discussion_id: int
@@ -19,17 +20,17 @@ class GeneratePersonasRequest:
 class User:
     username: str
     user_address: str
-    debate_id: Optional[int] = None
 
 @dataclass
 class Debate:
-    discussion_id: int
     topic: str
     sides: List[str]
     jurors: List[str]
     funding: float
     action: str
     creator_address: str
+    creator_username: str
+    discussion_id: Optional[int] = None
     
 class Side(BaseModel):
     id: str
