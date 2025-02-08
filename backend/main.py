@@ -18,6 +18,7 @@ from backend.database.juror import create_juror, get_jurors, get_all_juror_resul
 from backend.database.debate import create_debate, get_debate, DebateDB
 from backend.agents.juror import Juror, generate_juror_persona
 from backend.debate_manager.debate_manager import DebateManager
+from backend.debate_manager.wallet_storage import get_debate_wallets
 
 # Constants
 JUDGE_API_URL = os.getenv("JUDGE_API_URL", "http://localhost:8001")
@@ -403,3 +404,58 @@ async def websocket_endpoint(websocket: WebSocket, debate_id: str, client_id: st
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(debate_id, client_id)
+
+@app.get("/debate/{debate_id}/funding_status")
+async def check_debate_funding_status(debate_id: str):
+    """Check the funding status of a debate's wallets."""
+    db = SessionLocal()
+    try:
+        # Get debate information
+        debate = get_debate(db, debate_id)
+        if not debate:
+            raise HTTPException(status_code=404, detail="Debate not found")
+            
+        # Initialize debate manager
+        debate_manager = DebateManager(debate_id=str(debate_id), api_url=JUDGE_API_URL)
+        
+        # Get wallet information
+        wallet_info = get_debate_wallets(debate_id)
+        if not wallet_info:
+            raise HTTPException(status_code=404, detail="Wallet information not found")
+            
+        # Check CDP wallet funding
+        cdp_funded, cdp_balance = debate_manager.check_funding_status(
+            wallet_info['cdp_wallet_address'],
+            0.0001  # Required CDP gas amount
+        )
+        
+        # Check Privy wallet funding if required
+        privy_funded = False
+        privy_balance = 0
+        if debate.funding > 0:
+            privy_funded, privy_balance = debate_manager.check_funding_status(
+                wallet_info['privy_wallet_address'],
+                float(debate.funding)
+            )
+        else:
+            privy_funded = True  # If no funding required, consider it funded
+            
+        return {
+            "cdp_funded": cdp_funded,
+            "privy_funded": privy_funded,
+            "cdp_balance": cdp_balance,
+            "privy_balance": privy_balance,
+            "required_cdp_amount": 0.0001,
+            "required_privy_amount": float(debate.funding),
+            "message": (
+                f"CDP Wallet: {cdp_balance:.6f} ETH (Required: 0.0001 ETH)\n" +
+                (f"Privy Wallet: {privy_balance:.6f} ETH (Required: {debate.funding} ETH)"
+                 if debate.funding > 0 else "No funding required for Privy wallet")
+            )
+        }
+        
+    except Exception as e:
+        logger.error(f"Error checking funding status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error checking funding status: {str(e)}")
+    finally:
+        db.close()
