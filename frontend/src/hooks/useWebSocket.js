@@ -1,7 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { API_CONFIG } from '../config/api';
 
-export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) => {
+export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse, onJudgeMessage) => {
   const connectWebSocket = useCallback(() => {
     // Convert http(s):// to ws(s)://
     const wsUrl = API_CONFIG.BACKEND_URL.replace(/^http/, 'ws');
@@ -16,6 +16,10 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) 
       
       switch (data.type) {
         case 'new_message':
+          // Check if it's a judge agent message and has a valid ID
+          if (data.data?.username === "Judge Agent" && data.data?.id) {
+            onJudgeMessage(data.data);
+          }
           onNewMessage(data.data);
           break;
         case 'juror_response':
@@ -37,7 +41,7 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) 
     };
 
     return ws;
-  }, [debateId, clientId, onNewMessage, onJurorResponse]);
+  }, [debateId, clientId, onNewMessage, onJurorResponse, onJudgeMessage]);
 
   useEffect(() => {
     if (!debateId || !clientId) return;

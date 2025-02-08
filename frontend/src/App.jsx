@@ -104,10 +104,17 @@ const App = () => {
   // Add AI voting trends state
   const [aiVotingTrends, setAiVotingTrends] = useState([]);
 
+  // Handle judge commands
+  const [handleJudgeCommand, setHandleJudgeCommand] = useState(null);
+
   // Memoize the callback
   const onJurorVote = useCallback((handleVote) => {
     setHandleJurorVote(() => handleVote);
   }, []); // Empty dependency array since it doesn't depend on any values
+
+  const onJudgeCommandInit = useCallback((handler) => {
+    setHandleJudgeCommand(() => handler);
+  }, []);
 
   // Initialize with demo content when joining existing debate
   const initializeDemoContent = () => {
@@ -426,12 +433,27 @@ const App = () => {
     ]);
   }, [handleJurorVote]);
 
+  // Handle judge messages
+  const handleJudgeMessage = useCallback((messageData) => {
+    if (!handleJudgeCommand) return;
+    
+    const messageId = messageData.id;
+    if (messageId.startsWith('result-nft-deploy-') && !messageId.includes('error')) {
+      handleJudgeCommand("DEPLOYED NFT");
+    } else if (messageId.startsWith('result-nft-mint-') && !messageId.includes('error')) {
+      handleJudgeCommand("MINT NFT");
+    } else if (messageId.startsWith('result-action-') && !messageId.includes('error')) {
+      handleJudgeCommand("ACTION DONE");
+    }
+  }, [handleJudgeCommand]);
+
   // Initialize WebSocket connection
   useWebSocket(
     currentDebateId,
     walletAddress || 'anonymous',
     handleNewMessage,
-    handleJurorResponse
+    handleJurorResponse,
+    handleJudgeMessage
   );
 
   // Modify handleSubmitMessage to only handle message sending
@@ -503,7 +525,10 @@ const App = () => {
               <div className="w-[50%] flex flex-col gap-1 min-h-0">
                 {/* Court Room */}
                 <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
-                  <CourtRoom onJurorVote={onJurorVote} />
+                  <CourtRoom 
+                    onJurorVote={onJurorVote} 
+                    onWebSocketInit={onJudgeCommandInit}
+                  />
                 </div>
                 
                 {/* AI Jurors Opinions */}
