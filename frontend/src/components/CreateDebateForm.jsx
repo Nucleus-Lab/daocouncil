@@ -42,6 +42,8 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Submit button clicked');
+    console.log('Current form data:', formData);
 
     if (!walletAddress) {
       alert('Please connect your wallet first');
@@ -51,7 +53,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
     // 准备发送给后端的数据
     const debateData = {
       discussion_id: parseInt(formData.debateId),
-      topic: formData.topic,
+      topic: formData.topic?.trim(),
       sides: formData.sides.map(side => side.name),
       jurors: formData.jurors.map(juror => juror.persona),
       funding: parseFloat(formData.funding) || 0,
@@ -59,8 +61,15 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
       creator_address: walletAddress
     };
 
+    console.log('Form Data:', formData);
+    console.log('Debate Data:', debateData);
+    console.log('Topic value:', formData.topic);
+    console.log('Topic after trim:', formData.topic?.trim());
+    console.log('Topic type:', typeof formData.topic);
+
     // 验证数据
-    if (!debateData.topic?.trim()) {
+    if (typeof formData.topic !== 'string' || formData.topic.trim().length === 0) {
+      console.log('Topic validation failed');
       alert('Please enter a topic');
       return;
     }
@@ -139,6 +148,21 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
       setIsSubmitting(false);
     }
   };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && e.ctrlKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  useEffect(() => {
+    // 添加全局键盘事件监听
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const copyDebateId = async () => {
     try {
@@ -351,7 +375,14 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
                 type="text"
                 required
                 value={formData.topic}
-                onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
+                onChange={(e) => {
+                  console.log('Input value:', e.target.value);
+                  setFormData(prev => {
+                    const newData = { ...prev, topic: e.target.value };
+                    console.log('New form data:', newData);
+                    return newData;
+                  });
+                }}
                 style={{
                   width: '100%',
                   padding: '0.5rem 0.75rem',
@@ -668,20 +699,23 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
             Cancel
           </button>
           <button
-            form="create-debate-form"
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={isSubmitting}
             style={{
               padding: '0.5rem 1rem',
               borderRadius: '0.375rem',
-              backgroundColor: isSubmitting ? '#9CA3AF' : '#4F46E5',
+              backgroundColor: isSubmitting ? '#9CA3AF' : '#92400e',
               color: '#ffffff',
               border: 'none',
               cursor: isSubmitting ? 'not-allowed' : 'pointer',
               display: 'flex',
               alignItems: 'center',
-              gap: '0.5rem'
+              gap: '0.5rem',
+              transition: 'background-color 0.2s'
             }}
+            onMouseOver={e => !isSubmitting && (e.target.style.backgroundColor = '#78350f')}
+            onMouseOut={e => !isSubmitting && (e.target.style.backgroundColor = '#92400e')}
           >
             {isSubmitting ? (
               <>
@@ -692,7 +726,10 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
                 Creating...
               </>
             ) : (
-              'Create Debate'
+              <>
+                Create Debate
+                <span className="text-xs opacity-75">(Ctrl + Enter)</span>
+              </>
             )}
           </button>
         </div>
