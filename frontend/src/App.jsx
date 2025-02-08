@@ -22,7 +22,7 @@ import { useWebSocket } from './hooks/useWebSocket';
 import { usePrivy } from '@privy-io/react-auth';
 
 const App = () => {
-  const { login, ready, authenticated, user } = usePrivy();
+  const { login, ready, authenticated, user, wallet } = usePrivy();
   
   // State for debate management
   const [currentView, setCurrentView] = useState('welcome');
@@ -573,6 +573,7 @@ const App = () => {
             isWalletConnected={walletConnected}
             walletAddress={walletAddress}
             onConnectWallet={handleConnectWallet}
+            wallet={wallet}
           />
         );
       case 'create':

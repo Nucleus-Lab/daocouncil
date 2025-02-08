@@ -97,10 +97,16 @@ const UsernameSetup = ({ onSubmit, walletAddress }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
-        <h2 className="text-2xl font-bold text-court-brown mb-6">Set Your Username</h2>
-        <p className="text-gray-600 mb-4">
-          Please choose a username. This will be your permanent name for all debates.
-        </p>
+        <h2 className="text-2xl font-bold text-court-brown mb-6">Welcome! Please Register</h2>
+        <div className="space-y-4 mb-6">
+          <p className="text-gray-600">
+            This wallet address is not registered yet. Please choose a username to continue.
+          </p>
+          <div className="bg-gray-50 p-3 rounded-md">
+            <p className="text-sm text-gray-500">Wallet Address:</p>
+            <p className="font-mono text-gray-700">{walletAddress}</p>
+          </div>
+        </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
