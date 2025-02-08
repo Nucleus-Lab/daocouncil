@@ -3,7 +3,7 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { API_CONFIG } from '../config/api';
 
-const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
+const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
   const [formData, setFormData] = useState({
     topic: '',
     numJurors: 5,
@@ -89,7 +89,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: 'Moderator',
+          username: username,
           user_address: walletAddress
         }),
       });
@@ -105,7 +105,15 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(debateData),
+        body: JSON.stringify({
+          topic: formData.topic,
+          action: formData.actionPrompt,
+          creator_address: walletAddress,
+          creator_username: username,
+          funding: formData.funding,
+          jurors: formData.jurors.map(juror => juror.persona),
+          sides: formData.sides.map(side => side.name)
+        }),
       });
 
       if (!response.ok) {

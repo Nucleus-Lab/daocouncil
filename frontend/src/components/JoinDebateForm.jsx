@@ -1,21 +1,13 @@
 import React, { useState } from 'react';
 import { API_CONFIG } from '../config/api';
 
-const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
+const JoinDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
   const [debateId, setDebateId] = useState('');
-  const [username, setUsername] = useState('');
   const [error, setError] = useState('');
-  const validDebateId = '12345'; // 示例会议号，改为数字格式
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
-
-    // 检查用户名是否为空
-    if (!username.trim()) {
-      setError('Please enter a username');
-      return;
-    }
 
     // 检查 debate ID 是否为空
     if (!debateId.trim()) {
@@ -45,28 +37,10 @@ const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
         throw new Error('Invalid debate ID. Please check if the debate ID is correct.');
       }
 
-      // 注册用户并加入辩论
-      const userResponse = await fetch(`${API_CONFIG.BACKEND_URL}/user`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: username.trim(),
-          user_address: walletAddress,
-          debate_id: debateIdNum
-        }),
-      });
-
-      if (!userResponse.ok) {
-        const errorData = await userResponse.json();
-        throw new Error(errorData.detail || 'Failed to join debate');
-      }
-
       // 调用 onSubmit，传递完整的辩论信息
       onSubmit({
         debateId: debateIdNum,
-        username: username.trim(),
+        username: username,
         debateInfo: {
           sides: debateData.debate.sides,
           topic: debateData.debate.topic,
@@ -90,19 +64,14 @@ const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
         <h2 className="text-2xl font-bold text-court-brown mb-6">Join Existing Debate</h2>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Username Input */}
+          {/* Username Display */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Your Username
             </label>
-            <input
-              type="text"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-court-brown focus:border-court-brown"
-              placeholder="Enter your username"
-            />
+            <div className="px-3 py-2 border border-gray-300 rounded-md bg-gray-50">
+              {username}
+            </div>
           </div>
 
           {/* Debate ID Input */}
@@ -115,33 +84,26 @@ const JoinDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
               required
               value={debateId}
               onChange={(e) => setDebateId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-court-brown focus:border-court-brown"
-              placeholder={`Enter debate ID (e.g., ${validDebateId})`}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-court-brown focus:border-court-brown"
+              placeholder="Enter debate ID"
             />
-            <p className="mt-1 text-sm text-gray-500">
-              Please enter a numeric debate ID
-            </p>
           </div>
 
-          {/* Error Message */}
           {error && (
-            <div className="text-red-500 text-sm">
-              {error}
-            </div>
+            <div className="text-red-500 text-sm">{error}</div>
           )}
 
-          {/* Buttons */}
           <div className="flex justify-end space-x-4">
             <button
               type="button"
               onClick={onCancel}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-court-brown rounded-md hover:bg-court-brown-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-court-brown"
+              className="px-4 py-2 bg-court-brown text-white rounded-md hover:bg-court-brown-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-court-brown"
             >
               Join Debate
             </button>
