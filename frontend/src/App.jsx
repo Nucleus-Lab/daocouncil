@@ -442,7 +442,7 @@ const App = () => {
         messageData.text,
         messageData.stance,
         currentRound,
-        messageData.replyTo,
+        null,
         currentDebateInfo
       );
     } catch (error) {
