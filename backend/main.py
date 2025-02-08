@@ -14,7 +14,7 @@ from backend.database import SessionLocal, Base, engine
 from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest
 from backend.database.chat_message import create_chat_message, get_chat_history
 from backend.database.user import create_user, get_user
-from backend.database.juror import create_juror, get_jurors, get_all_juror_results, create_juror_result
+from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate, DebateDB
 from backend.agents.juror import Juror, generate_juror_persona
 
@@ -76,9 +76,11 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
         jurors = get_jurors(db, discussion_id)
         
         conv_history = ""
-        for msg in past_messages:
+        for msg in past_messages[:-1]:
             user = get_user(db, msg.user_address)
             conv_history += f"{user.username}: {msg.message}\n"
+        
+        new_message = f"{past_messages[-1].username}: {past_messages[-1].message}"
         
         sides = []
         for idx, side in enumerate(debate_info.sides):
@@ -87,7 +89,9 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
         results = {}
         for juror_db in jurors:
             juror = Juror(persona=juror_db.persona)
-            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
+            past_reasoning_list = get_juror_result(db, juror_db.juror_id, discussion_id)
+            past_reasoning = past_reasoning_list[-1].reasoning if past_reasoning_list else ""
+            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, past_reasoning=past_reasoning, new_message=new_message)
             results[juror_db.juror_id] = {
                 "result": result,
                 "reasoning": reasoning
@@ -351,7 +355,7 @@ def return_debate_info(discussion_id: str):
     finally:
         db.close()
 
-@app.get("/juror_results/{discussion_id}")
+@app.get("/juror_results")
 def return_juror_results(discussion_id: int):
     db = SessionLocal()
     try:

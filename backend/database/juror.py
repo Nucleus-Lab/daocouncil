@@ -27,7 +27,7 @@ class JurorResultDB(Base):
     juror_id = Column(Integer, index=True)
     discussion_id = Column(BigInteger, index=True)  # 改为 BigInteger
     latest_msg_id = Column(Integer, index=True)
-    result = Column(String)
+    result = Column(Integer)
     reasoning = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
