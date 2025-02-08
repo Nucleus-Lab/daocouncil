@@ -21,21 +21,47 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class DebateManager:
-    def __init__(self, debate_id: str, api_url: str):
-        """Initialize the DebateManager.
+    _instance = None
+    
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(DebateManager, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self, debate_id: str = None, api_url: str = None):
+        """Initialize the DebateManager singleton.
         
         Args:
-            debate_id (str): Unique identifier for the debate
-            api_url (str): Base URL for the judge agent API
+            debate_id (str, optional): Unique identifier for the debate
+            api_url (str, optional): Base URL for the judge agent API
         """
+        # Only initialize once
+        if self._initialized:
+            if debate_id is not None:
+                self.debate_id = debate_id
+            return
+            
         self.debate_id = debate_id
         self.api_url = api_url
-        self.chat_endpoint = f"{api_url}/chat"
+        self.chat_endpoint = f"{api_url}/chat" if api_url else None
         
         # Initialize Web3
         self.w3 = Web3(Web3.HTTPProvider(NETWORK_RPC_URLS["base-sepolia"]))
         if not self.w3.is_connected():
             raise ConnectionError("Failed to connect to Base Sepolia network")
+            
+        self._initialized = True
+    
+    @property
+    def debate_id(self):
+        return self._debate_id
+        
+    @debate_id.setter
+    def debate_id(self, value):
+        self._debate_id = value
+        if value is not None:
+            logger.info(f"DebateManager now handling debate: {value}")
 
     def chat_with_agent(self, message: str) -> str:
         """Send a chat message to the judge agent.
@@ -76,6 +102,9 @@ class DebateManager:
             logger.info("Getting CDP wallet address...")
             message = "What is your CDP wallet address?"
             cdp_response = self.chat_with_agent(message)
+            
+            logger.info(f"CDP response: {cdp_response}")
+            
             cdp_match = re.search(r'0x[a-fA-F0-9]{40}', cdp_response)
             if not cdp_match:
                 raise ValueError(f"Could not find CDP wallet address in response: {cdp_response}")
@@ -86,15 +115,34 @@ class DebateManager:
             message = "Create a new Privy wallet for this debate. This will be the vault for the debate."
             privy_response = self.chat_with_agent(message)
             
-            # Extract Privy wallet address and ID from response
-            privy_addr_match = re.search(r'\*\*Wallet Address:\*\* (0x[a-fA-F0-9]{40})', privy_response)
-            privy_id_match = re.search(r'\*\*Wallet ID:\*\* ([a-zA-Z0-9]+)', privy_response)
+            logger.info(f"Privy response: {privy_response}")
+            
+            # Extract Privy wallet address and ID from response with flexible pattern matching
+            # Match after "Wallet Address" (case insensitive), followed by optional formatting and separators
+            privy_addr_match = re.search(
+                r'(?:wallet\s*address)[^\w\n]*[`\s]*([0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})[`\s]*',
+                privy_response,
+                re.IGNORECASE
+            )
+            
+            # Match after "Wallet ID" (case insensitive), followed by optional formatting and separators
+            privy_id_match = re.search(
+                r'(?:wallet\s*id)[^\w\n]*[`\s]*([a-zA-Z0-9]+)[`\s]*',
+                privy_response,
+                re.IGNORECASE
+            )
             
             if not (privy_addr_match and privy_id_match):
                 logger.error(f"Response format: {privy_response}")
-                raise ValueError("Could not extract Privy wallet details. Expected format with '**Wallet ID:**' and '**Wallet Address:**'")
-                
-            results['privy_wallet_address'] = privy_addr_match.group(1)
+                raise ValueError(
+                    "Could not extract Privy wallet details. "
+                    "Expected response to contain 'Wallet ID' and 'Wallet Address' information."
+                )
+            
+            # Add 0x prefix if not present
+            addr = privy_addr_match.group(1)
+            addr = addr if addr.startswith('0x') else f'0x{addr}'
+            results['privy_wallet_address'] = addr
             results['privy_wallet_id'] = privy_id_match.group(1)
             
             # Store wallet information in JSON file
@@ -191,6 +239,8 @@ class DebateManager:
             deploy_response = self.chat_with_agent(deploy_message)
             results['nft_deployment'] = deploy_response
             
+            logger.info(f"NFT deployment response: {deploy_response}")
+            
             # Extract contract address
             contract_address_match = re.search(r'0x[a-fA-F0-9]{40}', deploy_response)
             if not contract_address_match:
@@ -205,6 +255,8 @@ class DebateManager:
             )
             results['nft_minting'] = self.chat_with_agent(mint_message)
             
+            logger.info(f"NFT minting response: {results['nft_minting']}")
+            
             # 3. Execute action if debate is approved
             approved = sum(ai_votes.values()) > len(ai_votes) / 2
             if approved:
@@ -216,6 +268,8 @@ class DebateManager:
                     f"with the Privy wallet ID provided (Wallet ID: {wallet_info['privy_wallet_id']})."
                 )
                 results['action_execution'] = self.chat_with_agent(action_message)
+                
+                logger.info(f"Action execution response: {results['action_execution']}")
             else:
                 logger.info("Debate rejected, no action taken")
                 results['action_execution'] = "Debate rejected, no action taken"

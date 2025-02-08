@@ -8,6 +8,9 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Back
 from fastapi.middleware.cors import CORSMiddleware
 import dspy
 import asyncio
+from httpx import AsyncClient
+import datetime
+import json
 
 # custom modules
 from backend.database import SessionLocal, Base, engine
@@ -24,6 +27,9 @@ from backend.debate_manager.wallet_storage import get_debate_wallets
 JUDGE_API_URL = os.getenv("JUDGE_API_URL", "http://localhost:8001")
 
 logger = logging.getLogger()
+
+# Create singleton DebateManager instance
+debate_manager = DebateManager(debate_id=None, api_url=JUDGE_API_URL)
 
 # dspy
 model = os.getenv("MODEL")
@@ -134,7 +140,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
             db=db,
             discussion_id=request.discussion_id,
             user_address=request.user_address,
-            username=request.username,  # 添加 username
+            username=request.username,
             message=request.message,
             stance=request.stance
         )
@@ -147,7 +153,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
                 "id": new_message.id,
                 "discussion_id": new_message.discussion_id,
                 "user_address": new_message.user_address,
-                "username": new_message.username,  # 添加 username
+                "username": new_message.username,
                 "message": new_message.message,
                 "stance": new_message.stance,
                 "timestamp": new_message.created_at.isoformat()
@@ -165,6 +171,29 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
             discussion_id=request.discussion_id
         )
         
+        # Check message count and process debate if needed
+        message_count = len(get_chat_history(db, request.discussion_id))
+        if message_count >= 3:
+            logger.info(f"Debate {request.discussion_id} has reached 3 messages, processing results...")
+            
+            # Process debate results in background
+            background_tasks.add_task(
+                process_debate_end,
+                debate_id=str(request.discussion_id)
+            )
+            
+            # Prepare debate end notification
+            end_notification = {
+                "type": "new_message",
+                "data": {
+                    "username": "Judge Agent",
+                    "user_address": "",
+                    "message": "Debate has reached 3 messages and will now be processed for final results.",
+                    "timestamp": datetime.datetime.now().isoformat()
+                }
+            }
+            await manager.broadcast_message(str(request.discussion_id), end_notification)
+        
         return {"message_id": new_message.id, "status": "success"}
     except Exception as e:
         db.rollback()
@@ -172,6 +201,64 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
         raise HTTPException(status_code=500, detail=f"Error creating message: {str(e)}")
     finally:
         db.close()
+
+async def process_debate_end(debate_id: str):
+    """Process the debate end after 3 messages."""
+    try:
+        # Call the process_debate_result endpoint
+        async with AsyncClient() as client:
+            response = await client.post(
+                f"http://localhost:8000/debate/{debate_id}/process_result"
+            )
+            
+            print("response from process_debate_result: ", response)
+            
+            if response.status_code == 200:
+                result = response.json()
+                # Broadcast the results using new_message type
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "username": "Judge Agent",
+                            "user_address": result.get("judge_address", ""),
+                            "message": "✅ Final Results:\n" + json.dumps(result, indent=2),
+                            "timestamp": datetime.datetime.now().isoformat()
+                        }
+                    }
+                )
+            else:
+                logger.error(f"Error processing debate end: {response.text}")
+                # Broadcast error using new_message type
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "username": "Judge Agent",
+                            "user_address": "",
+                            "message": f"❌ Error processing debate results:\n{response.text}",
+                            "timestamp": datetime.datetime.now().isoformat()
+                        }
+                    }
+                )
+                
+    except Exception as e:
+        logger.error(f"Error in process_debate_end: {str(e)}")
+        # Broadcast error using new_message type
+        await manager.broadcast_message(
+            debate_id,
+            {
+                "type": "new_message",
+                "data": {
+                    "username": "Judge Agent",
+                    "user_address": "",
+                    "message": f"❌ Error processing debate results:\n{str(e)}",
+                    "timestamp": datetime.datetime.now().isoformat()
+                }
+            }
+        )
 
 @app.post("/juror_response/{message_id}")
 async def get_juror_response(message_id: int, background_tasks: BackgroundTasks):
@@ -301,9 +388,8 @@ def post_debate(request: Debate):
         latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
         discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
         
-        # Initialize debate manager and create wallets
-        logger.info(f"Initializing DebateManager for debate {discussion_id}")
-        debate_manager = DebateManager(debate_id=str(discussion_id), api_url=JUDGE_API_URL)
+        # Set debate_id for the singleton manager
+        debate_manager.debate_id = str(discussion_id)
         
         try:
             wallet_info = debate_manager.initialize_debate()
@@ -415,8 +501,8 @@ async def check_debate_funding_status(debate_id: str):
         if not debate:
             raise HTTPException(status_code=404, detail="Debate not found")
             
-        # Initialize debate manager
-        debate_manager = DebateManager(debate_id=str(debate_id), api_url=JUDGE_API_URL)
+        # Set debate_id for the singleton manager
+        debate_manager.debate_id = debate_id
         
         # Get wallet information
         wallet_info = get_debate_wallets(debate_id)
@@ -457,5 +543,206 @@ async def check_debate_funding_status(debate_id: str):
     except Exception as e:
         logger.error(f"Error checking funding status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking funding status: {str(e)}")
+    finally:
+        db.close()
+
+@app.post("/debate/{debate_id}/process_result")
+async def process_debate_result(debate_id: str):
+    """Process the debate result and execute necessary actions based on voting outcome."""
+    db = SessionLocal()
+    try:
+        # Get debate information
+        debate = get_debate(db, debate_id)
+        if not debate:
+            raise HTTPException(status_code=404, detail="Debate not found")
+            
+        # Set debate_id for the singleton manager
+        debate_manager.debate_id = debate_id
+        
+        # Get all juror results
+        juror_results = get_all_juror_results(db, debate_id)
+        if not juror_results:
+            raise HTTPException(
+                status_code=400, 
+                detail="No juror results found. Ensure all jurors have voted."
+            )
+            
+        # Get chat history
+        chat_history = get_chat_history(db, debate_id)
+        debate_history = "\n".join([
+            f"{msg.username}: {msg.message}" 
+            for msg in chat_history
+        ])
+        
+        # Prepare voting results
+        ai_votes = {}
+        ai_reasoning = {}
+        for juror_results_list in juror_results:
+            # Get the latest result for each juror
+            if juror_results_list:  # Check if there are any results for this juror
+                latest_result = juror_results_list[-1]  # Get the most recent result
+                ai_votes[str(latest_result.juror_id)] = latest_result.result
+                ai_reasoning[str(latest_result.juror_id)] = latest_result.reasoning
+            
+        # Process the result
+        try:
+            # Get wallet information for the debate
+            wallet_info = get_debate_wallets(debate_id)
+            if not wallet_info:
+                raise HTTPException(status_code=404, detail="Wallet information not found")
+            
+            judge_address = wallet_info['cdp_wallet_address']
+            
+            # Announce debate conclusion
+            vote_count = sum(1 for vote in ai_votes.values() if vote)
+            total_votes = len(ai_votes)
+            decision = "APPROVED" if vote_count > total_votes / 2 else "REJECTED"
+            
+            await manager.broadcast_message(
+                debate_id,
+                {
+                    "type": "new_message",
+                    "data": {
+                        "id": f"result-conclusion-{debate_id}",
+                        "message": f"📊 Debate Conclusion: {decision}\n"
+                                 f"Votes: {vote_count}/{total_votes} in favor\n\n"
+                                 f"Proceeding with result processing...",
+                        "user_address": judge_address,
+                        "username": "Judge Agent",
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "stance": None
+                    }
+                }
+            )
+            
+            result = debate_manager.process_debate_result(
+                debate_history=debate_history,
+                ai_votes=ai_votes,
+                ai_reasoning=ai_reasoning,
+                action_prompt=debate.action
+            )
+            
+            print("result from debate_manager.process_debate_result: ", result)
+            
+            # Broadcast NFT deployment result
+            await manager.broadcast_message(
+                debate_id,
+                {
+                    "type": "new_message",
+                    "data": {
+                        "id": f"result-nft-deploy-{debate_id}",
+                        "message": f"🔨 Deploying NFT Contract...\n{result.get('nft_deployment')}",
+                        "user_address": judge_address,
+                        "username": "Judge Agent",
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "stance": None
+                    }
+                }
+            )
+            
+            # Broadcast NFT minting result
+            await manager.broadcast_message(
+                debate_id,
+                {
+                    "type": "new_message",
+                    "data": {
+                        "id": f"result-nft-mint-{debate_id}",
+                        "message": f"🎨 Minting Debate NFT...\n{result.get('nft_minting')}",
+                        "user_address": judge_address,
+                        "username": "Judge Agent",
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "stance": None
+                    }
+                }
+            )
+            
+            # Broadcast action execution result
+            action_result = result.get('action_execution', 'No action taken')
+            await manager.broadcast_message(
+                debate_id,
+                {
+                    "type": "new_message",
+                    "data": {
+                        "id": f"result-action-{debate_id}",
+                        "message": f"⚡ Action Execution:\n{action_result}",
+                        "user_address": judge_address,
+                        "username": "Judge Agent",
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "stance": None
+                    }
+                }
+            )
+            
+            # Final summary message
+            await manager.broadcast_message(
+                debate_id,
+                {
+                    "type": "new_message",
+                    "data": {
+                        "id": f"result-summary-{debate_id}",
+                        "message": "✅ Debate processing completed!\n\n"
+                                 "Summary:\n"
+                                 f"- Decision: {decision}\n"
+                                 f"- NFT Contract Deployed\n"
+                                 f"- NFT Minted\n"
+                                 f"- Action {'Executed' if decision == 'APPROVED' else 'Skipped'}",
+                        "user_address": judge_address,
+                        "username": "Judge Agent",
+                        "timestamp": datetime.datetime.now().isoformat(),
+                        "stance": None
+                    }
+                }
+            )
+            
+            return {
+                "success": True,
+                "debate_id": debate_id,
+                "nft_deployment": result.get('nft_deployment'),
+                "nft_minting": result.get('nft_minting'),
+                "action_execution": result.get('action_execution'),
+                "voting_results": {
+                    "total_votes": len(ai_votes),
+                    "approval_count": vote_count,
+                    "votes": ai_votes,
+                    "reasoning": ai_reasoning
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"Error processing debate result: {str(e)}")
+            # Broadcast error message
+            await manager.broadcast_message(
+                debate_id,
+                {
+                    "type": "new_message",
+                    "data": {
+                        "username": "Judge Agent",
+                        "user_address": "",
+                        "message": f"❌ Error during debate processing:\n{str(e)}",
+                        "timestamp": datetime.datetime.now().isoformat()
+                    }
+                }
+            )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Error processing debate result: {str(e)}"
+            )
+            
+    except Exception as e:
+        logger.error(f"Error in process_debate_result: {str(e)}")
+        # Broadcast error message
+        await manager.broadcast_message(
+            debate_id,
+            {
+                "type": "new_message",
+                "data": {
+                    "username": "Judge Agent",
+                    "user_address": "",
+                    "message": f"❌ Error processing debate:\n{str(e)}",
+                    "timestamp": datetime.datetime.now().isoformat()
+                }
+            }
+        )
+        raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
