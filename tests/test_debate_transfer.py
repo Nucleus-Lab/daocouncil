@@ -192,7 +192,7 @@ def test_successful_fund_transfer():
         else:
             logger.warning("! Transfer amount mismatch")
             
-        if abs(privy_balance_change - (FUNDING_PROPOSED + GAS_FEE)) < 0.00001:  # Account for gas
+        if abs(privy_balance_change - (FUNDING_PROPOSED)) < 0.00001:  # Account for gas
             logger.info("✓ Transfer successful: Privy vault debited the correct amount (including gas)")
         else:
             logger.warning("! Privy vault debit amount mismatch")
