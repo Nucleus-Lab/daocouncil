@@ -112,22 +112,40 @@ class DebateManager:
             
             # 2. Create Privy wallet
             logger.info("Creating Privy wallet...")
-            message = "Create a new Privy wallet for this debate. This will be the vault for the debate."
+            message = "Create a new Privy wallet for this debate. This will be the vault for the debate. Please return the wallet address and ID in this json format: example: {'wallet_address': '0x1234567890123456789012345678901234567890', 'wallet_id': '1234567890'}"
             privy_response = self.chat_with_agent(message)
             
             logger.info(f"Privy response: {privy_response}")
             
-            # Extract Privy wallet address and ID from response with flexible pattern matching
-            # Match after "Wallet Address" (case insensitive), followed by optional formatting and separators
+            # First try to parse as JSON
+            try:
+                # Try to find JSON content between triple backticks if present
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', privy_response, re.DOTALL)
+                if json_match:
+                    privy_response = json_match.group(1)
+                
+                # Try to parse the JSON
+                json_data = json.loads(privy_response)
+                if 'wallet_address' in json_data and 'wallet_id' in json_data:
+                    addr = json_data['wallet_address']
+                    wallet_id = json_data['wallet_id']
+                    # Add 0x prefix if not present
+                    addr = addr if addr.startswith('0x') else f'0x{addr}'
+                    results['privy_wallet_address'] = addr
+                    results['privy_wallet_id'] = wallet_id
+            except (json.JSONDecodeError, KeyError) as e:
+                logger.warning(f"Could not parse JSON response, falling back to regex: {e}")
+            
+            # Fallback to regex if JSON parsing fails
+            # Extract Privy wallet address and ID from response using flexible pattern matching
             privy_addr_match = re.search(
-                r'(?:wallet\s*address)[^\w\n]*[`\s]*([0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})[`\s]*',
+                r'["\']?wallet_address["\']?\s*:\s*["\']?(0x[0-9a-fA-F]{40})["\']?',
                 privy_response,
                 re.IGNORECASE
             )
             
-            # Match after "Wallet ID" (case insensitive), followed by optional formatting and separators
             privy_id_match = re.search(
-                r'(?:wallet\s*id)[^\w\n]*[`\s]*([a-zA-Z0-9]+)[`\s]*',
+                r'["\']?wallet_id["\']?\s*:\s*["\']?([a-zA-Z0-9]+)["\']?',
                 privy_response,
                 re.IGNORECASE
             )
