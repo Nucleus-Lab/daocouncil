@@ -355,11 +355,15 @@ def return_debate_info(discussion_id: str):
 def return_juror_results(discussion_id: int):
     db = SessionLocal()
     try:
+        logger.info(f"Fetching juror results for discussion_id: {discussion_id}")
         juror_results = get_all_juror_results(db, discussion_id)
+        logger.info(f"Found {len(juror_results)} juror results")
         return juror_results
     except Exception as e:
         logger.error(f"Error getting juror results: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error retrieving juror results")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Error traceback:", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error retrieving juror results: {str(e)}")
     finally:
         db.close()
 

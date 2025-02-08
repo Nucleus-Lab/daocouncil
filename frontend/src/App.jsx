@@ -82,7 +82,10 @@ const App = () => {
     jurorOpinions,
     setJurorOpinions,
     isJurorOpinionsExpanded,
-    setIsJurorOpinionsExpanded
+    setIsJurorOpinionsExpanded,
+    fetchJurorResponse,
+    fetchJurorHistory,
+    isLoading
   } = useJurorOpinions();
 
   const [currentRound, setCurrentRound] = useState(1);
@@ -362,6 +365,9 @@ const App = () => {
       console.error('Error loading messages:', error);
     }
 
+    // 获取 juror opinions 历史记录
+    await fetchJurorHistory(debateId);
+
     setCurrentView('debate');
   };
 
@@ -426,13 +432,32 @@ const App = () => {
     ]);
   }, [handleJurorVote]);
 
-  // Initialize WebSocket connection
-  useWebSocket(
+  // WebSocket 连接
+  const { connectWebSocket, disconnectWebSocket, isConnected } = useWebSocket(
     currentDebateId,
     walletAddress || 'anonymous',
     handleNewMessage,
     handleJurorResponse
   );
+
+  // WebSocket 重连和历史记录获取
+  useEffect(() => {
+    if (currentDebateId && currentView === 'debate' && !isConnected) {
+      // 连接 WebSocket
+      connectWebSocket();
+      
+      // 获取历史记录
+      fetchJurorHistory(currentDebateId).catch(error => {
+        console.error('Error fetching juror history:', error);
+      });
+    }
+
+    return () => {
+      if (isConnected) {
+        disconnectWebSocket();
+      }
+    };
+  }, [currentDebateId, currentView, isConnected, connectWebSocket, disconnectWebSocket]);
 
   // Modify handleSubmitMessage to only handle message sending
   const handleSubmitMessage = async (messageData) => {
