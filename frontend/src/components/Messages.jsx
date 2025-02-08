@@ -12,6 +12,7 @@ const Messages = ({
 }) => {
   const messageInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const [isPinnedMessageExpanded, setIsPinnedMessageExpanded] = useState(true);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -79,15 +80,17 @@ const Messages = ({
                   <span className="text-xs text-[#6b4423]">{messages[0]?.timestamp}</span>
                 </div>
                 <button 
-                  onClick={() => {}}
+                  onClick={() => setIsPinnedMessageExpanded(!isPinnedMessageExpanded)}
                   className="text-[#6b4423] hover:text-[#2c1810] transition-colors"
                 >
-                  <svg className={`w-5 h-5 transform transition-transform`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-5 h-5 transform transition-transform ${isPinnedMessageExpanded ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
               </div>
-              <p className="text-sm text-[#4a3223] mt-1.5 leading-relaxed">{messages[0]?.text}</p>
+              {isPinnedMessageExpanded && (
+                <p className="text-sm text-[#4a3223] mt-1.5 leading-relaxed">{messages[0]?.text}</p>
+              )}
             </div>
           </div>
         </div>
