@@ -15,15 +15,17 @@ class ChatMessageDB(Base):
     id = Column(Integer, primary_key=True, index=True)
     discussion_id = Column(Integer, index=True)
     user_address = Column(String)
+    username = Column(String, nullable=True)  # 添加 username 字段
     message = Column(String)
     stance = Column(String, nullable=True)  # 添加 stance 字段，允许为空
     created_at = Column(DateTime, default=datetime.utcnow)
 
 # Database operations for chat
-def create_chat_message(db, discussion_id: int, user_address: str, message: str, stance: Optional[str] = None):
+def create_chat_message(db, discussion_id: int, user_address: str, message: str, username: Optional[str] = None, stance: Optional[str] = None):
     new_message = ChatMessageDB(
         discussion_id=discussion_id,
         user_address=user_address,
+        username=username,  # 添加 username
         message=message,
         stance=stance,
         created_at=datetime.utcnow()

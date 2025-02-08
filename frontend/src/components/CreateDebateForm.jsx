@@ -3,16 +3,16 @@ import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { API_CONFIG } from '../config/api';
 
-const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
+const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
   const [formData, setFormData] = useState({
     topic: '',
     numJurors: 5,
     jurors: [
-      { id: '1', persona: '' },
-      { id: '2', persona: '' },
-      { id: '3', persona: '' },
-      { id: '4', persona: '' },
-      { id: '5', persona: '' }
+      { id: '1', persona: '', expanded: false },
+      { id: '2', persona: '', expanded: false },
+      { id: '3', persona: '', expanded: false },
+      { id: '4', persona: '', expanded: false },
+      { id: '5', persona: '', expanded: false }
     ],
     funding: 0,
     actionPrompt: '',
@@ -26,6 +26,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   });
 
   const [copied, setCopied] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
 
   useEffect(() => {
     const generateDebateId = () => {
@@ -88,7 +89,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          username: 'Moderator',
+          username: username,
           user_address: walletAddress
         }),
       });
@@ -104,7 +105,15 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(debateData),
+        body: JSON.stringify({
+          topic: formData.topic,
+          action: formData.actionPrompt,
+          creator_address: walletAddress,
+          creator_username: username,
+          funding: formData.funding,
+          jurors: formData.jurors.map(juror => juror.persona),
+          sides: formData.sides.map(side => side.name)
+        }),
       });
 
       if (!response.ok) {
@@ -146,6 +155,16 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
     }));
   };
 
+  const handleJurorFocus = (focusedId) => {
+    setFormData(prev => ({
+      ...prev,
+      jurors: prev.jurors.map(juror => ({
+        ...juror,
+        expanded: juror.id === focusedId
+      }))
+    }));
+  };
+
   const addSide = () => {
     setFormData(prev => ({
       ...prev,
@@ -177,11 +196,9 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
   };
 
   const generatePersonas = async () => {
-    if (!formData.topic) {
-      alert('Please enter a topic first');
-      return;
-    }
-
+    if (!formData.topic || isGenerating) return;
+    
+    setIsGenerating(true);
     try {
       const response = await fetch(`http://localhost:8000/generate_personas`, {
         method: 'POST',
@@ -196,7 +213,6 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('Server error:', errorData);
         throw new Error(errorData.detail || 'Failed to generate personas');
       }
 
@@ -216,45 +232,115 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
     } catch (error) {
       console.error('Error generating personas:', error);
       alert(error.message || 'Failed to generate personas. Please try again.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="flex-none p-6 border-b border-gray-200">
-          <h2 className="text-2xl font-bold text-court-brown">Create New Debate</h2>
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      width: '100%',
+      height: '100%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      padding: '1rem'
+    }}>
+      <div style={{
+        backgroundColor: '#ffffff',
+        borderRadius: '0.5rem',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+        width: '100%',
+        maxWidth: '42rem',
+        display: 'flex',
+        flexDirection: 'column',
+        maxHeight: '90vh'
+      }}>
+        <div style={{
+          padding: '1.5rem',
+          borderBottom: '1px solid #e5e7eb'
+        }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            color: '#1a202c'
+          }}>Create New Debate</h2>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-6">
-          <form onSubmit={handleSubmit} id="create-debate-form" className="space-y-6">
+        <div style={{
+          flex: 1,
+          overflowY: 'auto',
+          padding: '1.5rem',
+          backgroundColor: '#ffffff'
+        }}>
+          <form onSubmit={handleSubmit} id="create-debate-form" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Debate ID */}
-            <div className="bg-amber-50 p-4 rounded-md">
-              <div className="flex items-center justify-between">
+            <div style={{
+              backgroundColor: '#fff8e1',
+              padding: '1rem',
+              borderRadius: '0.375rem'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <div>
-                  <label className="block text-sm font-medium text-amber-800 mb-1">
+                  <label style={{
+                    display: 'block',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    color: '#92400e',
+                    marginBottom: '0.25rem'
+                  }}>
                     Debate ID
                   </label>
-                  <div className="text-lg font-mono font-bold text-amber-900">
+                  <div style={{
+                    fontSize: '1.125rem',
+                    fontFamily: 'monospace',
+                    fontWeight: 'bold',
+                    color: '#92400e'
+                  }}>
                     {formData.debateId}
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={copyDebateId}
-                  className="px-3 py-1.5 text-sm bg-amber-100 hover:bg-amber-200 text-amber-900 rounded-md transition-colors"
+                  style={{
+                    padding: '0.375rem 0.75rem',
+                    fontSize: '0.875rem',
+                    backgroundColor: '#fef3c7',
+                    color: '#92400e',
+                    borderRadius: '0.375rem',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'background-color 0.2s'
+                  }}
+                  onMouseOver={e => e.target.style.backgroundColor = '#fde68a'}
+                  onMouseOut={e => e.target.style.backgroundColor = '#fef3c7'}
                 >
                   {copied ? 'Copied!' : 'Copy ID'}
                 </button>
               </div>
-              <p className="mt-2 text-sm text-amber-700">
+              <p style={{
+                marginTop: '0.5rem',
+                fontSize: '0.875rem',
+                color: '#92400e'
+              }}>
                 Save this ID to share with others who want to join the debate.
               </p>
             </div>
 
             {/* Topic */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.25rem'
+              }}>
                 Debate Topic
               </label>
               <input
@@ -262,39 +348,88 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                 required
                 value={formData.topic}
                 onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.375rem',
+                  backgroundColor: '#ffffff',
+                  color: '#1a202c',
+                  outline: 'none'
+                }}
                 placeholder="Enter the topic for debate"
               />
             </div>
 
             {/* Jurors */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.5rem'
+              }}>
                 Juror Personas
               </label>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center mb-2">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
                   <button
                     type="button"
                     onClick={generatePersonas}
-                    disabled={!formData.topic}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      formData.topic 
-                        ? 'bg-court-brown text-white hover:bg-opacity-90'
-                        : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                    }`}
+                    disabled={!formData.topic || isGenerating}
+                    style={{
+                      padding: '0.375rem 0.75rem',
+                      fontSize: '0.875rem',
+                      backgroundColor: !formData.topic || isGenerating ? '#e5e7eb' : '#92400e',
+                      color: !formData.topic || isGenerating ? '#9ca3af' : '#ffffff',
+                      borderRadius: '0.375rem',
+                      border: 'none',
+                      cursor: !formData.topic || isGenerating ? 'not-allowed' : 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseOver={e => {
+                      if (formData.topic && !isGenerating) {
+                        e.target.style.backgroundColor = '#78350f';
+                      }
+                    }}
+                    onMouseOut={e => {
+                      if (formData.topic && !isGenerating) {
+                        e.target.style.backgroundColor = '#92400e';
+                      }
+                    }}
                   >
-                    Generate Personas
+                    {isGenerating && (
+                      <svg style={{ animation: 'spin 1s linear infinite', height: '1rem', width: '1rem' }} viewBox="0 0 24 24">
+                        <circle style={{ opacity: 0.25 }} cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                        <path style={{ opacity: 0.75 }} fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    )}
+                    {isGenerating ? 'Generating...' : 'Auto Generate'}
                   </button>
                 </div>
                 {formData.jurors.map((juror, index) => (
-                  <div key={juror.id} className="flex items-center gap-2 mb-2">
-                    <input
-                      type="text"
+                  <div key={juror.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <textarea
                       value={juror.persona}
                       onChange={(e) => handleJurorPersonaChange(juror.id, e.target.value)}
+                      onFocus={() => handleJurorFocus(juror.id)}
                       placeholder={`Juror ${index + 1} Persona Description`}
-                      className="flex-1 p-2 border rounded focus:outline-none focus:ring-2 focus:ring-court-brown"
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        height: juror.expanded ? '8rem' : '2.5rem',
+                        resize: 'none',
+                        overflow: juror.expanded ? 'auto' : 'hidden',
+                        transition: 'height 0.3s ease-in-out'
+                      }}
                     />
                   </div>
                 ))}
@@ -303,7 +438,13 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
 
             {/* Funding */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.5rem'
+              }}>
                 Funding
               </label>
               <input
@@ -316,48 +457,92 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                   const funding = value === '' ? '' : Number(parseFloat(value).toFixed(18));
                   setFormData(prev => ({ ...prev, funding }));
                 }}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.375rem',
+                  backgroundColor: '#ffffff',
+                  color: '#1a202c',
+                  outline: 'none'
+                }}
                 placeholder="Enter funding amount"
               />
             </div>
 
             {/* Action Prompt */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label style={{
+                display: 'block',
+                fontSize: '0.875rem',
+                fontWeight: 500,
+                color: '#1a202c',
+                marginBottom: '0.25rem'
+              }}>
                 Action Prompt
               </label>
               <textarea
                 required
                 value={formData.actionPrompt}
                 onChange={(e) => setFormData(prev => ({ ...prev, actionPrompt: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-                rows="3"
+                style={{
+                  width: '100%',
+                  padding: '0.5rem 0.75rem',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '0.375rem',
+                  backgroundColor: '#ffffff',
+                  color: '#1a202c',
+                  outline: 'none',
+                  height: '6rem',
+                  resize: 'none'
+                }}
                 placeholder="What action should be taken based on the debate outcome?"
               />
             </div>
 
             {/* Debate Sides */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="block text-sm font-medium text-gray-700">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: '#1a202c'
+                }}>
                   Debate Sides
                 </label>
                 <button
                   type="button"
                   onClick={addSide}
-                  className="text-sm text-court-brown hover:text-court-brown-dark"
+                  style={{
+                    fontSize: '0.875rem',
+                    color: '#92400e',
+                    border: 'none',
+                    backgroundColor: 'transparent',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={e => e.target.style.color = '#78350f'}
+                  onMouseOut={e => e.target.style.color = '#92400e'}
                 >
                   + Add Side
                 </button>
               </div>
-              <div className="space-y-3">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {formData.sides.map((side) => (
-                  <div key={side.id} className="flex items-center gap-2">
+                  <div key={side.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <input
                       type="text"
                       value={side.name}
                       onChange={(e) => updateSideName(side.id, e.target.value)}
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
+                      style={{
+                        flex: 1,
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        outline: 'none'
+                      }}
                       placeholder="Enter side name"
                       required
                     />
@@ -365,7 +550,14 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
                       <button
                         type="button"
                         onClick={() => removeSide(side.id)}
-                        className="text-red-500 hover:text-red-700"
+                        style={{
+                          color: '#ef4444',
+                          border: 'none',
+                          backgroundColor: 'transparent',
+                          cursor: 'pointer'
+                        }}
+                        onMouseOver={e => e.target.style.color = '#dc2626'}
+                        onMouseOut={e => e.target.style.color = '#ef4444'}
                       >
                         Remove
                       </button>
@@ -376,28 +568,72 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
             </div>
 
             {/* Date Range */}
-            <div className="grid grid-cols-2 gap-4">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: '#1a202c',
+                  marginBottom: '0.25rem'
+                }}>
                   Start Date
                 </label>
                 <DatePicker
                   selected={formData.startDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, startDate: date }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-                  dateFormat="yyyy-MM-dd"
+                  customInput={
+                    <input
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        outline: 'none'
+                      }}
+                    />
+                  }
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  showTimeSelect
+                  timeFormat="HH:mm"
+                  timeIntervals={60}
+                  timeCaption="Time"
                   minDate={new Date()}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label style={{
+                  display: 'block',
+                  fontSize: '0.875rem',
+                  fontWeight: 500,
+                  color: '#1a202c',
+                  marginBottom: '0.25rem'
+                }}>
                   End Date
                 </label>
                 <DatePicker
                   selected={formData.endDate}
                   onChange={(date) => setFormData(prev => ({ ...prev, endDate: date }))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-court-brown"
-                  dateFormat="yyyy-MM-dd"
+                  customInput={
+                    <input
+                      style={{
+                        width: '100%',
+                        padding: '0.5rem 0.75rem',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: '0.375rem',
+                        backgroundColor: '#ffffff',
+                        color: '#1a202c',
+                        outline: 'none'
+                      }}
+                    />
+                  }
+                  dateFormat="yyyy-MM-dd HH:mm"
+                  showTimeSelect
+                  timeFormat="HH:mm"
+                  timeIntervals={60}
+                  timeCaption="Time"
                   minDate={formData.startDate}
                 />
               </div>
@@ -405,23 +641,46 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress }) => {
           </form>
         </div>
 
-        <div className="flex-none p-6 border-t border-gray-200 bg-gray-50">
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={onCancel}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              form="create-debate-form"
-              type="submit"
-              className="px-4 py-2 bg-court-brown text-white rounded-md hover:bg-opacity-90 transition-colors"
-            >
-              Create Debate
-            </button>
-          </div>
+        <div style={{
+          padding: '1.5rem',
+          borderTop: '1px solid #e5e7eb',
+          backgroundColor: '#f9fafb',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          gap: '1rem'
+        }}>
+          <button
+            type="button"
+            onClick={onCancel}
+            style={{
+              padding: '0.5rem 1rem',
+              color: '#4a5568',
+              border: 'none',
+              backgroundColor: 'transparent',
+              cursor: 'pointer'
+            }}
+            onMouseOver={e => e.target.style.color = '#1a202c'}
+            onMouseOut={e => e.target.style.color = '#4a5568'}
+          >
+            Cancel
+          </button>
+          <button
+            form="create-debate-form"
+            type="submit"
+            style={{
+              padding: '0.5rem 1rem',
+              backgroundColor: '#92400e',
+              color: '#ffffff',
+              border: 'none',
+              borderRadius: '0.375rem',
+              cursor: 'pointer',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={e => e.target.style.backgroundColor = '#78350f'}
+            onMouseOut={e => e.target.style.backgroundColor = '#92400e'}
+          >
+            Create Debate
+          </button>
         </div>
       </div>
     </div>

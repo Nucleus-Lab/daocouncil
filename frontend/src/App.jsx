@@ -10,6 +10,7 @@ import JurorOpinions from './components/JurorOpinions';
 import WelcomePage from './components/WelcomePage';
 import CreateDebateForm from './components/CreateDebateForm';
 import JoinDebateForm from './components/JoinDebateForm';
+import UsernameSetup from './components/UsernameSetup';
 
 // Hooks
 import { useMessages } from './hooks/useMessages';
@@ -28,6 +29,7 @@ const App = () => {
   const [walletAddress, setWalletAddress] = useState('');
   const [currentDebateId, setCurrentDebateId] = useState('');
   const [username, setUsername] = useState('');
+  const [usernameSet, setUsernameSet] = useState(false);
   const [debateSides, setDebateSides] = useState([
     { id: '1', name: 'Side 1' },
     { id: '2', name: 'Side 2' }
@@ -45,11 +47,35 @@ const App = () => {
     if (ready && authenticated && user?.wallet?.address) {
       setWalletConnected(true);
       setWalletAddress(user.wallet.address);
+      // Check if user has a username set
+      checkUsername(user.wallet.address);
     } else {
       setWalletConnected(false);
       setWalletAddress('');
+      setUsername('');
+      setUsernameSet(false);
     }
   }, [ready, authenticated, user]);
+
+  const checkUsername = async (address) => {
+    try {
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/user/${address}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.username) {
+          setUsername(data.username);
+          setUsernameSet(true);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking username:', error);
+    }
+  };
+
+  const handleUsernameSet = (newUsername) => {
+    setUsername(newUsername);
+    setUsernameSet(true);
+  };
 
   // Existing state and hooks
   const {
@@ -263,13 +289,23 @@ const App = () => {
 
   const handleCreateDebateSubmit = async (debateInfo) => {
     try {
+      console.log('Received debate info:', debateInfo);  // 添加日志
+      
+      // 确保所有必要的字段都存在
+      if (!debateInfo || !debateInfo.discussion_id || !debateInfo.sides) {
+        throw new Error('Invalid debate information received');
+      }
+
       // 先设置辩论信息
       setCurrentDebateId(debateInfo.discussion_id.toString());
-      setCurrentDebateInfo(debateInfo);  
-      setDebateSides(debateInfo.sides.map((side, index) => ({
+      setCurrentDebateInfo(debateInfo);
+      
+      // 设置辩论双方
+      const formattedSides = debateInfo.sides.map((side, index) => ({
         id: (index + 1).toString(),
         name: side
-      })));
+      }));
+      setDebateSides(formattedSides);
       
       // 设置初始消息
       const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
@@ -281,9 +317,9 @@ const App = () => {
         throw new Error('Failed to load messages');
       }
       const messages = await response.json();
-      let messageCounter = 0; // 添加计数器以确保唯一ID
+      let messageCounter = 0;
       setMessages(messages.map(msg => ({
-        id: msg.id || `${Date.now()}-${messageCounter++}`, // 使用计数器确保唯一性
+        id: msg.id || `${Date.now()}-${messageCounter++}`,
         text: msg.message,
         sender: msg.user_address,
         username: msg.username || 'Anonymous',
@@ -292,15 +328,17 @@ const App = () => {
         round: msg.round || 1
       })));
 
+      // 最后切换视图
+      console.log('Switching to debate view');  // 添加日志
       setCurrentView('debate');
     } catch (error) {
       console.error('Error in handleCreateDebateSubmit:', error);
+      alert('Failed to create debate: ' + error.message);  // 添加用户提示
     }
   };
 
-  const handleJoinDebate = async ({ debateId, username: chosenUsername, debateInfo }) => {
+  const handleJoinDebate = async ({ debateId, debateInfo }) => {
     setCurrentDebateId(debateId);
-    setUsername(chosenUsername);
     setCurrentDebateInfo(debateInfo);
 
     // 加载历史消息
@@ -415,6 +453,12 @@ const App = () => {
 
   // Render different views based on currentView state
   const renderView = () => {
+    if (walletConnected && !usernameSet) {
+      return (
+        <UsernameSetup onSubmit={handleUsernameSet} walletAddress={walletAddress} />
+      );
+    }
+
     switch (currentView) {
       case 'welcome':
         return (
@@ -432,6 +476,7 @@ const App = () => {
             onSubmit={handleCreateDebateSubmit}
             onCancel={() => setCurrentView('welcome')}
             walletAddress={walletAddress}
+            username={username}
           />
         );
       case 'joinForm':
@@ -440,6 +485,7 @@ const App = () => {
             onSubmit={handleJoinDebate}
             onCancel={() => setCurrentView('welcome')}
             walletAddress={walletAddress}
+            username={username}
           />
         );
       case 'debate':
