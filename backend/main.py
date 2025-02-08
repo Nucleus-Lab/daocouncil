@@ -593,85 +593,148 @@ async def process_debate_result(debate_id: str):
             
             judge_address = wallet_info['cdp_wallet_address']
             
-            # Announce debate conclusion
-            vote_count = sum(1 for vote in ai_votes.values() if vote)
-            total_votes = len(ai_votes)
-            decision = "APPROVED" if vote_count > total_votes / 2 else "REJECTED"
+            # Create metadata for NFT
+            metadata = {
+                "name": f"Debate NFT {debate_id}",
+                "description": "NFT representing a DAO debate result",
+                "debate_id": debate_id,
+                "debate_history": debate_history,
+                "ai_votes": ai_votes,
+                "ai_reasoning": ai_reasoning,
+                "privy_wallet_id": wallet_info['privy_wallet_id'],
+                "timestamp": str(datetime.datetime.now().isoformat())
+            }
             
-            await manager.broadcast_message(
-                debate_id,
-                {
-                    "type": "new_message",
-                    "data": {
-                        "id": f"result-conclusion-{debate_id}",
-                        "message": f"📊 Debate Conclusion: {decision}\n"
-                                 f"Votes: {vote_count}/{total_votes} in favor\n\n"
-                                 f"Proceeding with result processing...",
-                        "user_address": judge_address,
-                        "username": "Judge Agent",
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "stance": None
+            # 1. Deploy NFT contract
+            try:
+                contract_address, deploy_response = debate_manager.deploy_nft(metadata)
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "id": f"result-nft-deploy-{debate_id}",
+                            "message": f"🔨 NFT Contract Deployed!\n{deploy_response}",
+                            "user_address": judge_address,
+                            "username": "Judge Agent",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "stance": None
+                        }
                     }
-                }
-            )
-            
-            result = debate_manager.process_debate_result(
-                debate_history=debate_history,
-                ai_votes=ai_votes,
-                ai_reasoning=ai_reasoning,
-                action_prompt=debate.action
-            )
-            
-            print("result from debate_manager.process_debate_result: ", result)
-            
-            # Broadcast NFT deployment result
-            await manager.broadcast_message(
-                debate_id,
-                {
-                    "type": "new_message",
-                    "data": {
-                        "id": f"result-nft-deploy-{debate_id}",
-                        "message": f"🔨 Deploying NFT Contract...\n{result.get('nft_deployment')}",
-                        "user_address": judge_address,
-                        "username": "Judge Agent",
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "stance": None
+                )
+            except Exception as e:
+                error_msg = f"Failed to deploy NFT contract: {str(e)}"
+                logger.error(error_msg)
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "id": f"result-nft-deploy-error-{debate_id}",
+                            "message": f"❌ {error_msg}",
+                            "user_address": judge_address,
+                            "username": "Judge Agent",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "stance": None
+                        }
                     }
-                }
-            )
+                )
+                raise
             
-            # Broadcast NFT minting result
-            await manager.broadcast_message(
-                debate_id,
-                {
-                    "type": "new_message",
-                    "data": {
-                        "id": f"result-nft-mint-{debate_id}",
-                        "message": f"🎨 Minting Debate NFT...\n{result.get('nft_minting')}",
-                        "user_address": judge_address,
-                        "username": "Judge Agent",
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "stance": None
+            # 2. Mint NFT
+            try:
+                mint_response = debate_manager.mint_nft(contract_address, metadata)
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "id": f"result-nft-mint-{debate_id}",
+                            "message": f"🎨 NFT Minted Successfully!\n{mint_response}",
+                            "user_address": judge_address,
+                            "username": "Judge Agent",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "stance": None
+                        }
                     }
-                }
-            )
+                )
+            except Exception as e:
+                error_msg = f"Failed to mint NFT: {str(e)}"
+                logger.error(error_msg)
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "id": f"result-nft-mint-error-{debate_id}",
+                            "message": f"❌ {error_msg}",
+                            "user_address": judge_address,
+                            "username": "Judge Agent",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "stance": None
+                        }
+                    }
+                )
+                raise
             
-            # Broadcast action execution result
-            action_result = result.get('action_execution', 'No action taken')
-            await manager.broadcast_message(
-                debate_id,
-                {
-                    "type": "new_message",
-                    "data": {
-                        "id": f"result-action-{debate_id}",
-                        "message": f"⚡ Action Execution:\n{action_result}",
-                        "user_address": judge_address,
-                        "username": "Judge Agent",
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "stance": None
+            # 3. Execute action if approved
+            approved = sum(ai_votes.values()) > len(ai_votes) / 2
+            action_result = None
+            
+            if approved:
+                try:
+                    action_result = debate_manager.execute_action(
+                        action_prompt=debate.action,
+                        privy_wallet_id=wallet_info['privy_wallet_id']
+                    )
+                    await manager.broadcast_message(
+                        debate_id,
+                        {
+                            "type": "new_message",
+                            "data": {
+                                "id": f"result-action-{debate_id}",
+                                "message": f"⚡ Action Executed Successfully!\n{action_result}",
+                                "user_address": judge_address,
+                                "username": "Judge Agent",
+                                "timestamp": datetime.datetime.now().isoformat(),
+                                "stance": None
+                            }
+                        }
+                    )
+                except Exception as e:
+                    error_msg = f"Failed to execute action: {str(e)}"
+                    logger.error(error_msg)
+                    await manager.broadcast_message(
+                        debate_id,
+                        {
+                            "type": "new_message",
+                            "data": {
+                                "id": f"result-action-error-{debate_id}",
+                                "message": f"❌ {error_msg}",
+                                "user_address": judge_address,
+                                "username": "Judge Agent",
+                                "timestamp": datetime.datetime.now().isoformat(),
+                                "stance": None
+                            }
+                        }
+                    )
+                    raise
+            else:
+                action_result = "Debate rejected, no action taken"
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "id": f"result-action-{debate_id}",
+                            "message": f"⚡ {action_result}",
+                            "user_address": judge_address,
+                            "username": "Judge Agent",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "stance": None
+                        }
                     }
-                }
-            )
+                )
             
             # Final summary message
             await manager.broadcast_message(
@@ -682,10 +745,10 @@ async def process_debate_result(debate_id: str):
                         "id": f"result-summary-{debate_id}",
                         "message": "✅ Debate processing completed!\n\n"
                                  "Summary:\n"
-                                 f"- Decision: {decision}\n"
-                                 f"- NFT Contract Deployed\n"
-                                 f"- NFT Minted\n"
-                                 f"- Action {'Executed' if decision == 'APPROVED' else 'Skipped'}",
+                                 f"- Decision: {'APPROVED' if approved else 'REJECTED'}\n"
+                                 f"- NFT Contract Deployed: {contract_address}\n"
+                                 f"- NFT Minted Successfully\n"
+                                 f"- Action: {'Executed' if approved else 'Skipped'}",
                         "user_address": judge_address,
                         "username": "Judge Agent",
                         "timestamp": datetime.datetime.now().isoformat(),
@@ -697,12 +760,13 @@ async def process_debate_result(debate_id: str):
             return {
                 "success": True,
                 "debate_id": debate_id,
-                "nft_deployment": result.get('nft_deployment'),
-                "nft_minting": result.get('nft_minting'),
-                "action_execution": result.get('action_execution'),
+                "nft_deployment": deploy_response,
+                "nft_contract": contract_address,
+                "nft_minting": mint_response,
+                "action_execution": action_result,
                 "voting_results": {
                     "total_votes": len(ai_votes),
-                    "approval_count": vote_count,
+                    "approval_count": sum(ai_votes.values()),
                     "votes": ai_votes,
                     "reasoning": ai_reasoning
                 }

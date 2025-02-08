@@ -191,12 +191,88 @@ class DebateManager:
             logger.error(f"Error checking funding status: {str(e)}")
             raise
 
+    def deploy_nft(self, metadata: Dict) -> Tuple[str, str]:
+        """Deploy NFT contract with metadata.
+        
+        Args:
+            metadata (Dict): NFT metadata
+            
+        Returns:
+            Tuple[str, str]: (contract_address, deployment_response)
+        """
+        logger.info("Deploying NFT contract...")
+        deploy_message = (
+            f"Deploy a new NFT contract with the following parameters:\n"
+            f"- name: 'Debate NFT {self.debate_id}'\n"
+            f"- symbol: 'DEBATE'\n"
+            f"- metadata: {json.dumps(metadata, indent=2)}\n"
+            f"Please deploy the contract with this metadata structure."
+        )
+        deploy_response = self.chat_with_agent(deploy_message)
+        logger.info(f"NFT deployment response: {deploy_response}")
+        
+        # Extract contract address with flexible pattern matching
+        contract_address_match = re.search(
+            r'(?:contract\s*(?:address|at|deployed\s*to)?)[^\w\n]*[`\s]*([0-9a-fA-F]{40}|0x[0-9a-fA-F]{40})[`\s]*',
+            deploy_response,
+            re.IGNORECASE
+        )
+        if not contract_address_match:
+            logger.error(f"Could not extract contract address from deployment response: {deploy_response}")
+            raise ValueError(f"Could not extract contract address from deployment response. Full response: {deploy_response}")
+            
+        # Add 0x prefix if not present
+        addr = contract_address_match.group(1)
+        addr = addr if addr.startswith('0x') else f'0x{addr}'
+        
+        return addr, deploy_response
+        
+    def mint_nft(self, contract_address: str, metadata: Dict) -> str:
+        """Mint NFT to the Privy vault.
+        
+        Args:
+            contract_address (str): Deployed contract address
+            metadata (Dict): NFT metadata
+            
+        Returns:
+            str: Minting response
+        """
+        logger.info("Minting NFT...")
+        mint_message = (
+            f"Mint an NFT from contract {contract_address} to the Privy vault with the following metadata:\n"
+            f"{json.dumps(metadata, indent=2)}"
+        )
+        mint_response = self.chat_with_agent(mint_message)
+        logger.info(f"NFT minting response: {mint_response}")
+        return mint_response
+        
+    def execute_action(self, action_prompt: str, privy_wallet_id: str) -> str:
+        """Execute the specified action if debate is approved.
+        
+        Args:
+            action_prompt (str): Action to execute
+            privy_wallet_id (str): Privy wallet ID for fund transfers
+            
+        Returns:
+            str: Action execution response
+        """
+        logger.info("Executing action...")
+        action_message = (
+            f"The debate has been approved. Please execute the following action:"
+            f"{action_prompt}\n\n"
+            f"Note: If this action involves transferring funding, please use the privy_transfer tool "
+            f"with the Privy wallet ID provided (Wallet ID: {privy_wallet_id})."
+        )
+        action_response = self.chat_with_agent(action_message)
+        logger.info(f"Action execution response: {action_response}")
+        return action_response
+
     def process_debate_result(self, 
                             debate_history: str,
                             ai_votes: Dict[str, bool],
                             ai_reasoning: Dict[str, str],
                             action_prompt: str) -> Dict[str, str]:
-        """Process debate result and execute the specified action.
+        """Process debate result and execute necessary actions.
         
         Args:
             debate_history (str): Complete debate conversation history
@@ -227,49 +303,20 @@ class DebateManager:
                 "timestamp": str(datetime.datetime.now().isoformat())
             }
             
-            # 1. Deploy NFT contract with metadata
-            logger.info("Deploying NFT contract...")
-            deploy_message = (
-                f"Deploy a new NFT contract with the following parameters:\n"
-                f"- name: 'Debate NFT {self.debate_id}'\n"
-                f"- symbol: 'DEBATE'\n"
-                f"- metadata: {json.dumps(metadata, indent=2)}\n"
-                f"Please deploy the contract with this metadata structure."
-            )
-            deploy_response = self.chat_with_agent(deploy_message)
+            # 1. Deploy NFT contract
+            contract_address, deploy_response = self.deploy_nft(metadata)
             results['nft_deployment'] = deploy_response
             
-            logger.info(f"NFT deployment response: {deploy_response}")
-            
-            # Extract contract address
-            contract_address_match = re.search(r'0x[a-fA-F0-9]{40}', deploy_response)
-            if not contract_address_match:
-                raise ValueError("Could not extract contract address from deployment response")
-            contract_address = contract_address_match.group(0)
-            
             # 2. Mint NFT
-            logger.info("Minting NFT...")
-            mint_message = (
-                f"Mint an NFT from contract {contract_address} to the Privy vault with the following metadata:\n"
-                f"{json.dumps(metadata, indent=2)}"
-            )
-            results['nft_minting'] = self.chat_with_agent(mint_message)
-            
-            logger.info(f"NFT minting response: {results['nft_minting']}")
+            results['nft_minting'] = self.mint_nft(contract_address, metadata)
             
             # 3. Execute action if debate is approved
             approved = sum(ai_votes.values()) > len(ai_votes) / 2
             if approved:
-                logger.info("Debate approved, executing action...")
-                action_message = (
-                    f"The debate has been approved. Please execute the following action:"
-                    f"{action_prompt}\n\n"
-                    f"Note: If this action involves transferring funding, please use the privy_transfer tool "
-                    f"with the Privy wallet ID provided (Wallet ID: {wallet_info['privy_wallet_id']})."
+                results['action_execution'] = self.execute_action(
+                    action_prompt,
+                    wallet_info['privy_wallet_id']
                 )
-                results['action_execution'] = self.chat_with_agent(action_message)
-                
-                logger.info(f"Action execution response: {results['action_execution']}")
             else:
                 logger.info("Debate rejected, no action taken")
                 results['action_execution'] = "Debate rejected, no action taken"
