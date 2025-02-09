@@ -339,12 +339,10 @@ def get_msg(discussion_id: int):
         response = get_chat_history(db, discussion_id)
         messages = []
         for res in response:
-            user_address = res.user_address
-            user = get_user(db, user_address)
             messages.append(ChatMessage(
                 discussion_id=res.discussion_id,
-                username=user.username,
-                user_address=user_address,
+                username=res.username,
+                user_address=res.user_address,
                 message=res.message,
                 timestamp=res.created_at,
                 stance=res.stance  # 添加 stance 到返回的消息中
