@@ -8,9 +8,10 @@ export const useJurorOpinions = () => {
   const fetchJurorResponse = async (messageId) => {
     try {
       setIsLoading(true);
-      const response = await fetch(`http://localhost:8000/juror_response/${messageId}`, {
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/juror_response/${messageId}`, {
         method: 'POST',
       });
+
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -47,18 +48,19 @@ export const useJurorOpinions = () => {
       setIsLoading(true);
       // 将 discussionId 转换为整数
       const numericDiscussionId = parseInt(discussionId, 10);
-      const response = await fetch(`http://localhost:8000/juror_results/${numericDiscussionId}`);
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/juror_results/${numericDiscussionId}`);
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to get juror history');
       }
 
+
       const historyData = await response.json();
       console.log('Juror history:', historyData);
 
       // Get debate info to map result indices to side names
-      const debateResponse = await fetch(`http://localhost:8000/debate/${discussionId}`);
+      const debateResponse = await fetch(`${API_CONFIG.BACKEND_URL}/debate/${discussionId}`);
       if (!debateResponse.ok) {
         throw new Error('Failed to get debate info');
       }

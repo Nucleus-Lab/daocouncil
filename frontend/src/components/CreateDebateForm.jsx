@@ -425,10 +425,11 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
     
     setIsGenerating(true);
     try {
-      const response = await fetch(`http://localhost:8000/generate_personas`, {
+      const response = await fetch(`${API_CONFIG.BACKEND_URL}/generate_personas`, {
         method: 'POST',
         headers: {
           'accept': 'application/json',
+
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
