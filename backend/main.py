@@ -689,7 +689,7 @@ async def process_debate_result(debate_id: str):
             votes_text = "\n".join(votes_summary)
             action_prompt = f"""Here are the AI jurors' votes:
                             {votes_text}
-                            Based on these votes, please evaluate and execute the following action if appropriate:
+                            Based on these votes, please evaluate and determine what action to take:
                             {debate.action}"""
             
             try:

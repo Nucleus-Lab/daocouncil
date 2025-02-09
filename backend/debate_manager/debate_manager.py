@@ -276,7 +276,6 @@ class DebateManager:
         """
         logger.info("Executing action...")
         action_message = (
-            f"The debate has been approved. Please execute the following action:"
             f"{action_prompt}\n\n"
             f"Note: If this action involves transferring funding, please use the privy_transfer tool "
             f"with the Privy wallet ID provided (Wallet ID: {privy_wallet_id})."
