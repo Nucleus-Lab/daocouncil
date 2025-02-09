@@ -51,6 +51,7 @@ class JurorSprite {
     }
 
     speak(text) {
+        console.log(`JurorSprite ${this.id}: Speaking with text:`, text);  // 添加日志
         this.showSpeech = true;
         this.speechText = text;
         this.speechCounter = this.speechDuration;
@@ -59,6 +60,7 @@ class JurorSprite {
         this.isJumping = true;
         this.jumpCounter = this.jumpDuration;
         
+        console.log(`JurorSprite ${this.id}: Animation started - Jump height: ${this.jumpHeight}, Duration: ${this.jumpDuration}`);  // 添加日志
         logger.info(`Juror speaking: ${text}`);
     }
 
@@ -72,9 +74,11 @@ class JurorSprite {
                 this.y = this.initialY - jumpOffset;
                 
                 this.jumpCounter--;
+                console.log(`JurorSprite ${this.id}: Jumping - Progress: ${progress.toFixed(2)}, Offset: ${jumpOffset.toFixed(2)}`);  // 添加日志
             } else {
                 this.isJumping = false;
                 this.y = this.initialY;  // Reset to original position
+                console.log(`JurorSprite ${this.id}: Jump animation completed`);  // 添加日志
             }
         }
     }

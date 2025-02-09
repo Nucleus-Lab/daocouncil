@@ -56,8 +56,13 @@ class GameEngine {
     }
 
     handleJurorVote(jurorId, vote) {
+        console.log('GameEngine: Handling juror vote:', jurorId, vote);  
         const sprite = this.sprites.get(jurorId);
-        if (!sprite) return;
+        if (!sprite) {
+            console.warn(`Sprite not found for juror: ${jurorId}`);  
+            console.log('Available sprites:', Array.from(this.sprites.keys()));  
+            return;
+        }
 
         // Show speech bubble with vote
         sprite.speak(vote);

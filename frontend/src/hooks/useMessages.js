@@ -45,18 +45,17 @@ export const useMessages = (walletAddress, username) => {
 
       const responseData = await response.json();
       console.log('Server response:', responseData);  // 添加服务器响应日志
+      console.log('Message sent successfully. Waiting for potential juror response...');  // 添加日志
 
       // Add the message to local state immediately
       const newMessage = {
         id: responseData.message_id,
-        discussion_id: discussionId,
-        user_address: walletAddress,
+        text: text,  // 改用 text 而不是 message
+        sender: walletAddress,  // 改用 sender 而不是 user_address
         username: username,
-        message: text,
+        timestamp: new Date().toLocaleTimeString(),  // 使用本地时间格式
         stance: stance,
-        timestamp: new Date().toISOString(),
-        round: round,
-        replyTo: replyTo
+        round: round
       };
 
       setMessages(prevMessages => [...prevMessages, newMessage]);
@@ -78,8 +77,18 @@ export const useMessages = (walletAddress, username) => {
         throw new Error('Failed to load messages');
       }
       const data = await response.json();
-      setMessages(data);
-      return data;
+      // 转换消息格式
+      const formattedMessages = data.map(msg => ({
+        id: msg.id,
+        text: msg.message,
+        sender: msg.user_address,
+        username: msg.username || 'Anonymous',
+        timestamp: new Date(msg.timestamp).toLocaleTimeString(),
+        stance: msg.stance,
+        round: msg.round || 1
+      }));
+      setMessages(formattedMessages);
+      return formattedMessages;
     } catch (error) {
       console.error('Error loading messages:', error);
       throw error;

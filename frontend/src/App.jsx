@@ -436,9 +436,11 @@ const App = () => {
 
   // Handle real-time message updates
   const handleNewMessage = useCallback((messageData) => {
+    console.log('Received new message:', messageData);  // 添加日志
     setMessages(prevMessages => {
       // Check if message already exists
       if (prevMessages.some(msg => msg.id === messageData.id)) {
+        console.log('Message already exists, skipping');  // 添加日志
         return prevMessages;
       }
 
@@ -452,17 +454,20 @@ const App = () => {
         round: currentRound
       };
 
+      console.log('Adding new message:', newMessage);  // 添加日志
       return [...prevMessages, newMessage];
     });
   }, [currentRound]);
 
   // Handle real-time juror response updates
   const handleJurorResponse = useCallback((responseData) => {
+    console.log('App: Handling juror response:', responseData);
     const { message_id, responses } = responseData;
     const timestamp = new Date().toLocaleTimeString();
 
     // Update juror opinions
     Object.entries(responses).forEach(([jurorId, data]) => {
+      console.log(`Processing juror ${jurorId} response:`, data);
       const newOpinion = {
         id: `${Date.now()}-${jurorId}`,
         jurorId,
@@ -476,14 +481,12 @@ const App = () => {
         [newOpinion.id]: newOpinion
       }));
 
-      console.log('Juror response:', newOpinion);
-      console.log('Juror votes:', data.result);
-      console.log('handleJurorVote:', handleJurorVote);
-
       // Trigger voting animation
       if (handleJurorVote) {
-        console.log('Triggering voting animation');
+        console.log(`Triggering vote animation for juror ${jurorId} with result ${data.result}`);
         handleJurorVote(jurorId, data.result);
+      } else {
+        console.warn('handleJurorVote is not set');
       }
     });
 
@@ -499,6 +502,12 @@ const App = () => {
       }
     ]);
   }, [handleJurorVote]);
+
+  // 设置 handleJurorVote 函数
+  const setJurorVoteHandler = useCallback((handler) => {
+    console.log('Setting juror vote handler');
+    setHandleJurorVote(() => handler);
+  }, []);
 
   // Handle judge messages
   const handleJudgeMessage = useCallback((messageData) => {

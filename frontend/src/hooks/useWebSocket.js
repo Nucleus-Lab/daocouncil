@@ -15,21 +15,42 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse, 
     const ws = new WebSocket(`${wsUrl}/ws/${debateId}/${clientId}`);
 
     ws.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('WebSocket connected successfully');
+      // 连接成功后立即请求最新的 juror 响应
+      if (onJurorResponse) {
+        fetch(`${API_CONFIG.BACKEND_URL}/juror_results/${debateId}`)
+          .then(response => response.json())
+          .then(data => {
+            console.log('Fetched latest juror results:', data);
+            if (data && data.length > 0) {
+              const latestResponse = data[data.length - 1];
+              onJurorResponse({
+                message_id: latestResponse.message_id,
+                responses: latestResponse.responses
+              });
+            }
+          })
+          .catch(error => console.error('Error fetching juror results:', error));
+      }
     };
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+      console.log('WebSocket received message:', data);
       
       switch (data.type) {
         case 'new_message':
           // Check if it's a judge agent message and has a valid ID
           if (data.data?.username === "Judge Agent" && data.data?.id) {
+            console.log('Received judge message:', data.data);
             onJudgeMessage(data.data);
+          } else {
+            console.log('Received regular user message:', data.data);
           }
           onNewMessage(data.data);
           break;
         case 'juror_response':
+          console.log('Received juror response for message:', data.data.message_id);
           onJurorResponse(data.data);
           break;
         default:
