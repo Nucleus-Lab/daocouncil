@@ -14,7 +14,7 @@ import json
 
 # custom modules
 from backend.database import SessionLocal, Base, engine
-from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest
+from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest, PrivyWalletRequest
 from backend.database.chat_message import create_chat_message, get_chat_history, ChatMessageDB
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
@@ -22,6 +22,7 @@ from backend.database.debate import create_debate, get_debate, DebateDB, update_
 from backend.agents.juror import Juror, generate_juror_persona
 from backend.debate_manager.debate_manager import DebateManager
 from backend.debate_manager.wallet_storage import get_debate_wallets
+from backend.database.privy_data import create_privy_wallet, get_privy_wallet
 
 # Constants
 JUDGE_API_URL = os.getenv("JUDGE_API_URL")
@@ -188,8 +189,9 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
         )
         
         # Check message count and process debate if needed
-        message_count = len(get_chat_history(db, request.discussion_id))
-        if message_count >= 6:
+        chat_history = get_chat_history(db, request.discussion_id)
+        message_count = len(chat_history)
+        if message_count >= 3:
             logger.info(f"Debate {request.discussion_id} has reached 3 messages, processing results...")
             update_debate_status(db=db, discussion_id=request.discussion_id, is_ended=True)
             # Process debate results in background
@@ -199,16 +201,17 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
             )
             
             # Prepare debate end notification
-            end_notification = {
-                "type": "new_message",
-                "data": {
-                    "username": "Judge Agent",
-                    "user_address": "",
-                    "message": "Debate has reached 3 messages and will now be processed for final results.",
-                    "timestamp": datetime.datetime.now().isoformat()
-                }
-            }
-            await manager.broadcast_message(str(request.discussion_id), end_notification)
+            end_message = create_chat_message(
+                db=db,
+                discussion_id=request.discussion_id,
+                user_address=chat_history[0].user_address,
+                username=chat_history[0].username,
+                message="Debate has reached 3 messages and will now be processed for final results.",
+                stance=None
+            )
+            
+            db.commit()
+            await manager.broadcast_message(str(request.discussion_id), wrap_message(end_message))
         
         return {"message_id": new_message.id, "status": "success"}
     except Exception as e:
@@ -229,36 +232,36 @@ async def process_debate_end(debate_id: str):
             
             print("response from process_debate_result: ", response)
             
-            if response.status_code == 200:
-                result = response.json()
-                # Broadcast the results using new_message type
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "username": "Judge Agent",
-                            "user_address": result.get("judge_address", ""),
-                            "message": "✅ Final Results:\n" + json.dumps(result, indent=2),
-                            "timestamp": datetime.datetime.now().isoformat()
-                        }
-                    }
-                )
-            else:
-                logger.error(f"Error processing debate end: {response.text}")
-                # Broadcast error using new_message type
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "username": "Judge Agent",
-                            "user_address": "",
-                            "message": f"❌ Error processing debate results:\n{response.text}",
-                            "timestamp": datetime.datetime.now().isoformat()
-                        }
-                    }
-                )
+            # if response.status_code == 200:
+            #     result = response.json()
+            #     # Broadcast the results using new_message type
+            #     await manager.broadcast_message(
+            #         debate_id,
+            #         {
+            #             "type": "new_message",
+            #             "data": {
+            #                 "username": "Judge Agent",
+            #                 "user_address": result.get("judge_address", ""),
+            #                 "message": "✅ Final Results:\n" + json.dumps(result, indent=2),
+            #                 "timestamp": datetime.datetime.now().isoformat()
+            #             }
+            #         }
+            #     )
+            # else:
+            #     logger.error(f"Error processing debate end: {response.text}")
+            #     # Broadcast error using new_message type
+            #     await manager.broadcast_message(
+            #         debate_id,
+            #         {
+            #             "type": "new_message",
+            #             "data": {
+            #                 "username": "Judge Agent",
+            #                 "user_address": "",
+            #                 "message": f"❌ Error processing debate results:\n{response.text}",
+            #                 "timestamp": datetime.datetime.now().isoformat()
+            #             }
+            #         }
+            #     )
                 
     except Exception as e:
         logger.error(f"Error in process_debate_end: {str(e)}")
@@ -814,7 +817,7 @@ async def process_debate_result(debate_id: str):
                         }
                     }
                 )
-                raise
+                raise HTTPException(status_code=500, detail=f"Error executing action: {str(e)}")
             
             # Final summary message
             judge_message = create_chat_message(
@@ -881,3 +884,66 @@ async def process_debate_result(debate_id: str):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+
+@app.post("/privy_wallet")
+def post_privy_wallet(request: PrivyWalletRequest):
+    """Create a new privy wallet record"""
+    db = SessionLocal()
+    try:
+        # Check if wallet already exists for this debate
+        existing_wallet = get_privy_wallet(db, request.debate_id)
+        if existing_wallet:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Privy wallet already exists for debate {request.debate_id}"
+            )
+
+        new_wallet = create_privy_wallet(
+            db=db,
+            debate_id=request.debate_id,
+            cdp_wallet_address=request.cdp_wallet_address,
+            privy_wallet_address=request.privy_wallet_address,
+            privy_wallet_id=request.privy_wallet_id
+        )
+        
+        return {
+            "debate_id": new_wallet.debate_id,
+            "cdp_wallet_address": new_wallet.cdp_wallet_address,
+            "privy_wallet_address": new_wallet.privy_wallet_address,
+            "privy_wallet_id": new_wallet.privy_wallet_id
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating privy wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.get("/privy_wallet/{debate_id}")
+def get_privy_wallet_info(debate_id: int):
+    """Get privy wallet information for a debate"""
+    db = SessionLocal()
+    try:
+        wallet = get_privy_wallet(db, debate_id)
+        if not wallet:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No privy wallet found for debate {debate_id}"
+            )
+            
+        return {
+            "debate_id": wallet.debate_id,
+            "cdp_wallet_address": wallet.cdp_wallet_address,
+            "privy_wallet_address": wallet.privy_wallet_address,
+            "privy_wallet_id": wallet.privy_wallet_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving privy wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
