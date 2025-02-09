@@ -104,7 +104,7 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
         },
         callbacks: {
           label: function(context) {
-            return `Side ${context.dataset.label}: ${context.parsed.y} votes`;
+            return `${context.dataset.label}: ${context.parsed.y} votes`;
           }
         }
       }
