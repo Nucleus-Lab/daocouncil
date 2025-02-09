@@ -2,8 +2,23 @@ import React, { useState, useEffect } from 'react';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
 import { API_CONFIG } from '../config/api';
+import { fundWallet, checkDebateFundingStatus } from '../utils/transactions';
 
 const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
+  const [fundingStep, setFundingStep] = useState(null);
+  const [fundingStatus, setFundingStatus] = useState({
+    cdpFunded: false,
+    privyFunded: false,
+  });
+  const [verificationStatus, setVerificationStatus] = useState({
+    isVerifying: false,
+    message: '',
+    error: null
+  });
+  
+  // Constants for gas and funding
+  const CDP_GAS = 0.0001;  // Gas for CDP operations
+  
   const [formData, setFormData] = useState({
     topic: '',
     numJurors: 5,
@@ -40,6 +55,170 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
     setFormData(prev => ({ ...prev, debateId: generateDebateId() }));
   }, []);
 
+  const verifyFundingStatus = async (debateId, requiredAmount, maxAttempts = 10) => {
+    setVerificationStatus({ isVerifying: true, message: 'Verifying funding status...', error: null });
+    let attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      try {
+        const status = await checkDebateFundingStatus(debateId, requiredAmount);
+        console.log(`Funding verification attempt ${attempts + 1}:`, status);
+        
+        if (status.success) {
+          setVerificationStatus({
+            isVerifying: false,
+            message: 'Funding verified successfully!',
+            error: null
+          });
+          return true;
+        }
+        
+        // If not successful, wait and try again
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds between attempts
+        attempts++;
+        
+        setVerificationStatus({
+          isVerifying: true,
+          message: `Verifying funding status... Attempt ${attempts + 1}/${maxAttempts}`,
+          error: null
+        });
+      } catch (error) {
+        console.error('Error verifying funding:', error);
+        setVerificationStatus({
+          isVerifying: false,
+          message: '',
+          error: error.message
+        });
+        return false;
+      }
+    }
+    
+    setVerificationStatus({
+      isVerifying: false,
+      message: '',
+      error: 'Funding verification timed out. Please check your transaction status and try again.'
+    });
+    return false;
+  };
+
+  const handleFundingStep = async (result) => {
+    if (!window.ethereum) {
+      alert('Please install a Web3 wallet to proceed with funding');
+      return;
+    }
+
+    try {
+      // Ensure MetaMask is connected
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+      console.log('Connected accounts:', accounts);
+      
+      if (!accounts || accounts.length === 0) {
+        throw new Error('No accounts found. Please unlock MetaMask and try again.');
+      }
+
+      // Step 1: Fund CDP Wallet
+      setFundingStep('cdp');
+      if (!fundingStatus.cdpFunded) {
+        console.log('Initiating CDP wallet funding...');
+        const shouldProceed = window.confirm(
+          `Please send ${CDP_GAS} ETH to the CDP wallet for gas fees.\n\n` +
+          `Address: ${result.cdp_wallet_address}\n\n` +
+          `Click OK to proceed with the transaction. Make sure your wallet is unlocked.`
+        );
+
+        if (shouldProceed) {
+          try {
+            console.log('User confirmed CDP funding, proceeding with transaction...');
+            const cdpHash = await fundWallet(
+              window.ethereum,
+              result.cdp_wallet_address,
+              CDP_GAS,
+              'CDP wallet (gas fees)'
+            );
+            console.log('CDP funding transaction hash:', cdpHash);
+            setFundingStatus(prev => ({ ...prev, cdpFunded: true }));
+          } catch (error) {
+            console.error('CDP funding error:', error);
+            if (error.message.includes('rejected')) {
+              alert('Transaction was rejected. Please try again when ready.');
+              return;
+            }
+            throw error;
+          }
+        } else {
+          console.log('User cancelled CDP funding');
+          alert('Funding cancelled. The debate cannot proceed without funding the CDP wallet.');
+          return;
+        }
+      }
+
+      const ESTIMATED_GAS_FEE = 0.00005;
+
+      // Step 2: Fund Privy Wallet (if funding is required)
+      if (formData.funding > 0 && !fundingStatus.privyFunded) {
+        setFundingStep('privy');
+        console.log('Initiating Privy wallet funding...');
+        const shouldProceed = window.confirm(
+          `Please send funding ${formData.funding} + estimated gas fee of ${ESTIMATED_GAS_FEE} ETH to the Privy wallet for debate funding.\n\n` +
+          `Total amount to send: ${formData.funding + ESTIMATED_GAS_FEE} ETH\n\n` +
+          `Address: ${result.privy_wallet_address}\n\n` +
+          `Click OK to proceed with the transaction. Make sure your wallet is unlocked.`
+        );
+
+
+
+
+
+        if (shouldProceed) {
+          try {
+            console.log('User confirmed Privy funding, proceeding with transaction...');
+            const privyHash = await fundWallet(
+              window.ethereum,
+              result.privy_wallet_address,
+              formData.funding + ESTIMATED_GAS_FEE,
+              'Privy wallet (debate funding)'
+            );
+            console.log('Privy funding transaction hash:', privyHash);
+            setFundingStatus(prev => ({ ...prev, privyFunded: true }));
+          } catch (error) {
+            console.error('Privy funding error:', error);
+            if (error.message.includes('rejected')) {
+              alert('Transaction was rejected. Please try again when ready.');
+              return;
+            }
+            throw error;
+          }
+        } else {
+          console.log('User cancelled Privy funding');
+          alert('Funding cancelled. The debate cannot proceed without funding the Privy wallet.');
+          return;
+        }
+      }
+
+      // Step 3: Verify funding status
+      setFundingStep('verifying');
+      const fundingVerified = await verifyFundingStatus(result.discussion_id, formData.funding);
+      
+      if (!fundingVerified) {
+        throw new Error(verificationStatus.error || 'Failed to verify funding status');
+      }
+
+      // Clear funding step when done
+      setFundingStep(null);
+      
+      // Proceed with form submission
+      onSubmit(result);
+    } catch (error) {
+      console.error('Error during funding process:', error);
+      alert(
+        'There was an error during the funding process. ' +
+        'Please ensure your wallet is unlocked and try again.\n\n' +
+        'Error: ' + error.message
+      );
+      setFundingStep(null);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     console.log('Submit button clicked');
@@ -47,6 +226,11 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
 
     if (!walletAddress) {
       alert('Please connect your wallet first');
+      return;
+    }
+
+    if (!window.ethereum) {
+      alert('Please install a Web3 wallet to proceed');
       return;
     }
     
@@ -135,13 +319,29 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
 
       const result = await response.json();
       console.log('Debate created successfully:', result);
+      console.log('Debate details:');
+      console.log('- Discussion ID:', result.discussion_id);
+      console.log('- Topic:', result.topic);
+      console.log('- Funding:', result.funding);
+      console.log('- Action:', result.action);
+      console.log('Wallet Information:');
+      console.log('- CDP Wallet Address:', result.cdp_wallet_address);
+      console.log('- Privy Wallet Address:', result.privy_wallet_address);
+      console.log('- Privy Wallet ID:', result.privy_wallet_id);
+      console.log('Participants:');
+      console.log('- Creator:', result.creator_username, '(', result.creator_address, ')');
+      console.log('- Jurors:', result.jurors);
+      console.log('- Sides:', result.sides);
+      console.log('Timestamps:');
+      console.log('- Created at:', result.created_at);
       
       // 确保结果包含所需的字段
       if (!result || !result.discussion_id) {
         throw new Error('Invalid response from server');
       }
       
-      onSubmit(result);
+      // Start funding process
+      await handleFundingStep(result);
     } catch (error) {
       console.error('Error creating debate:', error);
       alert(error.message || 'Failed to create debate. Please try again.');
@@ -279,6 +479,41 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
       alignItems: 'center',
       padding: '1rem'
     }}>
+      {fundingStep && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          backgroundColor: '#ffffff',
+          padding: '2rem',
+          borderRadius: '0.5rem',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+          zIndex: 1000,
+          maxWidth: '400px',
+          width: '90%'
+        }}>
+          <h3 style={{ marginBottom: '1rem' }}>
+            {fundingStep === 'verifying' ? 'Verifying Funding' : 'Funding in Progress'}
+          </h3>
+          <p>
+            {fundingStep === 'cdp' 
+              ? `Please confirm the transaction to fund the CDP wallet with ${CDP_GAS} ETH for gas fees.`
+              : fundingStep === 'privy'
+                ? `Please confirm the transaction to fund the Privy wallet with ${formData.funding} ETH for debate funding.`
+                : verificationStatus.message
+            }
+          </p>
+          {verificationStatus.error && (
+            <p style={{ color: '#ef4444', marginTop: '0.5rem' }}>
+              {verificationStatus.error}
+            </p>
+          )}
+          <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+            <div className="loading-spinner"></div>
+          </div>
+        </div>
+      )}
       <div style={{
         backgroundColor: '#ffffff',
         borderRadius: '0.5rem',

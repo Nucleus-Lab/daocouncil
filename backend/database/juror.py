@@ -83,4 +83,5 @@ def get_all_juror_results(db, discussion_id: int) -> List[List[JurorResultDB]]:
         juror_results.append(get_juror_result(db, juror_id, discussion_id))
     return juror_results
 
+
 Base.metadata.create_all(bind=engine)

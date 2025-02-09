@@ -14,24 +14,26 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class JudgeAgent:
-    def __init__(self, debate_id: str):
-        """Initialize a judge agent for a specific debate.
-        
-        Args:
-            debate_id (str): Unique identifier for the debate
-            target_address (str): The wallet address that will receive funds if debate passes
-            funding_amount_eth (float): Amount of ETH required for the debate
-        """
-        self.debate_id = debate_id
-        self.wallet_data_file = f"wallet_data_{debate_id}.txt"
-        self.privy_wallet = None  # Will be set during initialization
-        self.wallet_id = None     # Will be set during initialization
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(JudgeAgent, cls).__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+    
+    def __init__(self):
+        """Initialize a singleton judge agent that handles multiple debates."""
+        if self._initialized:
+            return
+            
+        logger.info("Initializing singleton JudgeAgent")
+        self.debate_wallets = {}  # Map debate_ids to their wallet data
         load_dotenv()
-
-        logger.info(f"Initializing JudgeAgent for debate: {debate_id}")
         
-        # Initialize the agent and get the debate vault wallet
+        # Initialize the agent
         self.agent_executor, self.config = self._initialize_agent()
+        self._initialized = True
         
     def _initialize_agent(self):
         """Initialize the CDP agent with wallet and tools."""
@@ -56,7 +58,7 @@ class JudgeAgent:
 
         # Set up memory and config
         memory = MemorySaver()
-        config = {"configurable": {"thread_id": f"DAO_Judge_{self.debate_id}"}}
+        config = {"configurable": {"thread_id": "DAO_Judge_Global"}}
 
         # Create ReAct Agent with updated state modifier
         return create_react_agent(
@@ -64,9 +66,9 @@ class JudgeAgent:
             tools=tools,
             checkpointer=memory,
             state_modifier=(
-                "You are a responsible judge AI agent for a DAO debate. "
+                "You are a responsible judge AI agent for multiple DAO debates. "
                 "You have a CDP wallet for agent operations and you are managing multiple Privy wallets for different debates. "
-                "You should always verify wallet balances before making transactions and maintain detailed logs"
+                "You should always verify wallet balances before making transactions and maintain detailed logs "
                 "of all financial activities. You can create debate vault using privy_create_wallet tool. "
                 "You can transfer funds from the debate vault wallet to any target address using the privy_transfer tool. "
                 "If it is a transfer from the CDP wallet to other wallets, you should use the CDP transfer tool. "
@@ -75,35 +77,49 @@ class JudgeAgent:
             ),
         ), config
         
-    def chat(self, message: str) -> str:
+    def get_wallet_for_debate(self, debate_id: str):
+        """Get or create wallet data for a specific debate."""
+        if debate_id not in self.debate_wallets:
+            logger.info(f"Creating new wallet data for debate: {debate_id}")
+            self.debate_wallets[debate_id] = {
+                'wallet_data_file': f"wallet_data_{debate_id}.txt",
+                'privy_wallet': None,
+                'wallet_id': None
+            }
+        return self.debate_wallets[debate_id]
+        
+    def chat(self, debate_id: str, message: str) -> str:
         """Send a message to the agent and get its response.
         
-        This is a general-purpose chat function that can handle any formatted message
-        and interact with the agent. It will process the message through the agent's
-        tools and return the response.
-        
         Args:
+            debate_id (str): The ID of the debate this message is related to
             message (str): The message to send to the agent
             
         Returns:
             str: The agent's response
         """
         try:
-            logger.info("Processing message through agent...")
+            # Get wallet data for this debate
+            wallet_data = self.get_wallet_for_debate(debate_id)
+            
+            # Add debate context to the message
+            contextualized_message = f"[Debate ID: {debate_id}] {message}"
+            logger.info(f"Processing message for debate {debate_id}")
+            
             response = None
             tool_outputs = []
             
             # Stream the interaction with the agent
             for chunk in self.agent_executor.stream(
-                {"messages": [HumanMessage(content=message)]},
+                {"messages": [HumanMessage(content=contextualized_message)]},
                 self.config
             ):
                 if "agent" in chunk:
                     response = chunk["agent"]["messages"][0].content
-                    logger.info("Agent response received")
+                    logger.info(f"Agent response received for debate {debate_id}")
                 elif "tools" in chunk:
                     tool_message = chunk['tools']['messages'][0].content
-                    logger.info(f"Tool execution: {tool_message}")
+                    logger.info(f"Tool execution for debate {debate_id}: {tool_message}")
                     tool_outputs.append(tool_message)
                 print("-------------------")
             
@@ -114,10 +130,10 @@ class JudgeAgent:
             if not response:
                 raise ValueError("No response received from agent")
                 
-            logger.info("Message processing completed")
+            logger.info(f"Message processing completed for debate {debate_id}")
             return response
             
         except Exception as e:
-            error_msg = f"Error processing message: {str(e)}"
+            error_msg = f"Error processing message for debate {debate_id}: {str(e)}"
             logger.error(error_msg)
             raise ValueError(error_msg)

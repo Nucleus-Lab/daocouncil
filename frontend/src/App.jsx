@@ -144,10 +144,17 @@ const App = () => {
   // Add AI voting trends state
   const [aiVotingTrends, setAiVotingTrends] = useState([]);
 
+  // Handle judge commands
+  const [handleJudgeCommand, setHandleJudgeCommand] = useState(null);
+
   // Memoize the callback
   const onJurorVote = useCallback((handleVote) => {
     setHandleJurorVote(() => handleVote);
   }, []); // Empty dependency array since it doesn't depend on any values
+
+  const onJudgeCommandInit = useCallback((handler) => {
+    setHandleJudgeCommand(() => handler);
+  }, []);
 
   // Initialize with demo content when joining existing debate
   const initializeDemoContent = () => {
@@ -465,8 +472,13 @@ const App = () => {
         [newOpinion.id]: newOpinion
       }));
 
+      console.log('Juror response:', newOpinion);
+      console.log('Juror votes:', data.result);
+      console.log('handleJurorVote:', handleJurorVote);
+
       // Trigger voting animation
       if (handleJurorVote) {
+        console.log('Triggering voting animation');
         handleJurorVote(jurorId, data.result);
       }
     });
@@ -484,12 +496,30 @@ const App = () => {
     ]);
   }, [handleJurorVote]);
 
+  // Handle judge messages
+  const handleJudgeMessage = useCallback((messageData) => {
+    console.log('handleJudgeMessage messageData:', messageData);
+    console.log('handleJudgeCommand:', handleJudgeCommand);
+    
+    if (!handleJudgeCommand) return;
+    
+    const messageId = messageData.id;
+    if (messageId.startsWith('result-nft-deploy-') && !messageId.includes('error')) {
+      handleJudgeCommand("DEPLOYED NFT");
+    } else if (messageId.startsWith('result-nft-mint-') && !messageId.includes('error')) {
+      handleJudgeCommand("MINT NFT");
+    } else if (messageId.startsWith('result-action-') && !messageId.includes('error')) {
+      handleJudgeCommand("ACTION DONE");
+    }
+  }, [handleJudgeCommand]);
+
   // WebSocket 连接
   const { connectWebSocket, disconnectWebSocket, isConnected } = useWebSocket(
     currentDebateId,
     walletAddress || 'anonymous',
     handleNewMessage,
-    handleJurorResponse
+    handleJurorResponse,
+    handleJudgeMessage
   );
 
   // WebSocket 重连和历史记录获取
@@ -617,7 +647,10 @@ const App = () => {
               <div className="w-[50%] flex flex-col gap-1 min-h-0">
                 {/* Court Room */}
                 <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
-                  <CourtRoom onJurorVote={onJurorVote} />
+                  <CourtRoom 
+                    onJurorVote={onJurorVote} 
+                    onWebSocketInit={onJudgeCommandInit}
+                  />
                 </div>
                 
                 {/* AI Jurors Opinions */}

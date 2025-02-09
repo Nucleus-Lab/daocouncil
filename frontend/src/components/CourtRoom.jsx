@@ -9,7 +9,7 @@ import { BUTTON_STYLES } from '../game/constants/ui';
 import { logger } from '../game/utils/logger';
 import { ASSETS } from '../game/constants/assets';  // Import ASSETS instead of direct image import
 
-const CourtRoom = ({ onJurorVote }) => {
+const CourtRoom = ({ onJurorVote, onWebSocketInit }) => {
     const canvasRef = useRef(null);
     const engineRef = useRef(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -97,17 +97,20 @@ const CourtRoom = ({ onJurorVote }) => {
         engineRef.current.handleJurorVote(spriteId, vote);
     }, []); // Empty dependency array since it uses only refs
 
+    const handleJudgeCommand = useCallback((command) => {
+        if (!engineRef.current) return;
+        engineRef.current.handleJudgeSpeak(command);
+    }, []);
+
     // Update effect with proper dependencies
     useEffect(() => {
         if (onJurorVote && handleVote) {
             onJurorVote(handleVote);
         }
-    }, [onJurorVote, handleVote]);  // Add both dependencies
-
-    const handleJudgeCommand = (command) => {
-        if (!engineRef.current) return;
-        engineRef.current.handleJudgeSpeak(command);
-    };
+        if (onWebSocketInit) {
+            onWebSocketInit(handleJudgeCommand);
+        }
+    }, [onJurorVote, handleVote, onWebSocketInit, handleJudgeCommand]);
 
     return (
         <div className="relative w-full h-full bg-court-brown flex items-center justify-center">

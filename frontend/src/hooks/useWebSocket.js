@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import { API_CONFIG } from '../config/api';
 
-export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) => {
+export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse, onJudgeMessage) => {
   const wsRef = useRef(null);
 
   const connectWebSocket = useCallback(() => {
@@ -23,6 +23,10 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) 
       
       switch (data.type) {
         case 'new_message':
+          // Check if it's a judge agent message and has a valid ID
+          if (data.data?.username === "Judge Agent" && data.data?.id) {
+            onJudgeMessage(data.data);
+          }
           onNewMessage(data.data);
           break;
         case 'juror_response':
@@ -45,7 +49,7 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) 
     };
 
     wsRef.current = ws;
-  }, [debateId, clientId, onNewMessage, onJurorResponse]);
+  }, [debateId, clientId, onNewMessage, onJurorResponse, onJudgeMessage]);
 
   const disconnectWebSocket = useCallback(() => {
     if (wsRef.current) {
