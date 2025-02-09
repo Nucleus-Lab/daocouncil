@@ -21,7 +21,6 @@ from backend.database.juror import create_juror, get_jurors, get_juror_result, g
 from backend.database.debate import create_debate, get_debate, DebateDB, update_debate_status
 from backend.agents.juror import Juror, generate_juror_persona
 from backend.debate_manager.debate_manager import DebateManager
-from backend.debate_manager.wallet_storage import get_debate_wallets
 from backend.database.privy_data import create_privy_wallet, get_privy_wallet
 
 # Constants
@@ -546,14 +545,14 @@ async def check_debate_funding_status(debate_id: str):
         # Set debate_id for the singleton manager
         debate_manager.debate_id = debate_id
         
-        # Get wallet information
-        wallet_info = get_debate_wallets(debate_id)
+        # Get wallet information with proper session handling
+        wallet_info = get_privy_wallet(db, debate_id)
         if not wallet_info:
             raise HTTPException(status_code=404, detail="Wallet information not found")
             
         # Check CDP wallet funding
         cdp_funded, cdp_balance = debate_manager.check_funding_status(
-            wallet_info['cdp_wallet_address'],
+            wallet_info.cdp_wallet_address,  # Use the proper attribute access
             0.0001  # Required CDP gas amount
         )
         
@@ -562,7 +561,7 @@ async def check_debate_funding_status(debate_id: str):
         privy_balance = 0
         if debate.funding > 0:
             privy_funded, privy_balance = debate_manager.check_funding_status(
-                wallet_info['privy_wallet_address'],
+                wallet_info.privy_wallet_address,  # Use the proper attribute access
                 float(debate.funding)
             )
         else:
@@ -586,7 +585,7 @@ async def check_debate_funding_status(debate_id: str):
         logger.error(f"Error checking funding status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking funding status: {str(e)}")
     finally:
-        db.close()
+        db.close()  # Always close the session
 
 @app.post("/debate/{debate_id}/process_result")
 async def process_debate_result(debate_id: str):
@@ -628,18 +627,17 @@ async def process_debate_result(debate_id: str):
                 ai_votes[str(latest_result.juror_id)] = latest_result.result
                 ai_reasoning[str(latest_result.juror_id)] = latest_result.reasoning
             
-        # Process the result
+        # Get wallet information for the debate
+        wallet_info = get_privy_wallet(db, debate_id)
+        if not wallet_info:
+            raise HTTPException(status_code=404, detail="Wallet information not found")
+        
+        judge_address = wallet_info.cdp_wallet_address  # Use proper attribute access
+        
+        # Create metadata URI for NFT
+        metadata_uri = f"{FRONTEND_BASE_URL}/debate/{debate_id}"  # Base URL for debate metadata
+            
         try:
-            # Get wallet information for the debate
-            wallet_info = get_debate_wallets(debate_id)
-            if not wallet_info:
-                raise HTTPException(status_code=404, detail="Wallet information not found")
-            
-            judge_address = wallet_info['cdp_wallet_address']
-            
-            # Create metadata URI for NFT
-            metadata_uri = f"{FRONTEND_BASE_URL}/debate/{debate_id}"  # Base URL for debate metadata
-            
             # 1. Deploy NFT contract
             try:
                 contract_address, deploy_response = debate_manager.deploy_nft(metadata_uri)
