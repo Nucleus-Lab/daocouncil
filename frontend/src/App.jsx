@@ -54,21 +54,28 @@ const App = () => {
   const { addMessage, loadMessages } = useMessages(walletAddress, username);
 
   useEffect(() => {
-    if (ready && authenticated && user?.wallet?.address) {
+    if (ready && authenticated && user) {
       setWalletConnected(true);
-      setWalletAddress(user.wallet.address);
       
       // 先检查本地缓存
       const cachedUsername = localStorage.getItem('username');
       const cachedWallet = localStorage.getItem('walletAddress');
       
-      if (cachedUsername && cachedWallet === user.wallet.address) {
-        // 如果缓存存在且钱包地址匹配，直接使用缓存的用户名
-        setUsername(cachedUsername);
-        setUsernameSet(true);
-      } else {
-        // 如果没有缓存或钱包地址不匹配，则查询后端
-        checkUsername(user.wallet.address);
+      // 获取正确的钱包地址
+      const externalWallet = wallets?.find(w => w.walletClientType !== 'privy');
+      const currentWalletAddress = externalWallet?.address || user?.wallet?.address;
+      
+      if (currentWalletAddress) {
+        setWalletAddress(currentWalletAddress);
+        
+        if (cachedUsername && cachedWallet === currentWalletAddress) {
+          // 如果缓存存在且钱包地址匹配，直接使用缓存的用户名
+          setUsername(cachedUsername);
+          setUsernameSet(true);
+        } else {
+          // 如果没有缓存或钱包地址不匹配，则查询后端
+          checkUsername(currentWalletAddress);
+        }
       }
     } else {
       setWalletConnected(false);
@@ -79,20 +86,7 @@ const App = () => {
       localStorage.removeItem('username');
       localStorage.removeItem('walletAddress');
     }
-  }, [ready, authenticated, user]);
-
-  useEffect(() => {
-    if (walletsReady) {
-      const externalWallet = wallets?.find(w => w.walletClientType !== 'privy');
-      if (externalWallet) {
-        setWalletAddress(externalWallet.address);
-        setWalletConnected(true);
-      } else {
-        setWalletAddress('');
-        setWalletConnected(false);
-      }
-    }
-  }, [wallets, walletsReady]);
+  }, [ready, authenticated, user, wallets]);
 
   const checkUsername = async (address) => {
     try {
