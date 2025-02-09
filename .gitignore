@@ -176,3 +176,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+debate_wallets.json
