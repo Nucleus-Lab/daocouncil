@@ -14,7 +14,7 @@ import json
 
 # custom modules
 from backend.database import SessionLocal, Base, engine
-from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest
+from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest, PrivyWalletRequest
 from backend.database.chat_message import create_chat_message, get_chat_history, ChatMessageDB
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
@@ -22,6 +22,7 @@ from backend.database.debate import create_debate, get_debate, DebateDB, update_
 from backend.agents.juror import Juror, generate_juror_persona
 from backend.debate_manager.debate_manager import DebateManager
 from backend.debate_manager.wallet_storage import get_debate_wallets
+from backend.database.privy_data import create_privy_wallet, get_privy_wallet
 
 # Constants
 JUDGE_API_URL = os.getenv("JUDGE_API_URL")
@@ -883,3 +884,66 @@ async def process_debate_result(debate_id: str):
         raise HTTPException(status_code=500, detail=str(e))
     finally:
         db.close()
+
+
+@app.post("/privy_wallet")
+def post_privy_wallet(request: PrivyWalletRequest):
+    """Create a new privy wallet record"""
+    db = SessionLocal()
+    try:
+        # Check if wallet already exists for this debate
+        existing_wallet = get_privy_wallet(db, request.debate_id)
+        if existing_wallet:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Privy wallet already exists for debate {request.debate_id}"
+            )
+
+        new_wallet = create_privy_wallet(
+            db=db,
+            debate_id=request.debate_id,
+            cdp_wallet_address=request.cdp_wallet_address,
+            privy_wallet_address=request.privy_wallet_address,
+            privy_wallet_id=request.privy_wallet_id
+        )
+        
+        return {
+            "debate_id": new_wallet.debate_id,
+            "cdp_wallet_address": new_wallet.cdp_wallet_address,
+            "privy_wallet_address": new_wallet.privy_wallet_address,
+            "privy_wallet_id": new_wallet.privy_wallet_id
+        }
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating privy wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.get("/privy_wallet/{debate_id}")
+def get_privy_wallet_info(debate_id: int):
+    """Get privy wallet information for a debate"""
+    db = SessionLocal()
+    try:
+        wallet = get_privy_wallet(db, debate_id)
+        if not wallet:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No privy wallet found for debate {debate_id}"
+            )
+            
+        return {
+            "debate_id": wallet.debate_id,
+            "cdp_wallet_address": wallet.cdp_wallet_address,
+            "privy_wallet_address": wallet.privy_wallet_address,
+            "privy_wallet_id": wallet.privy_wallet_id
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving privy wallet: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
