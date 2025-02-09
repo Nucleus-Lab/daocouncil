@@ -33,8 +33,13 @@ root.render(
         loginMethods: ['wallet', 'email', 'google'],
         embeddedWallets: {
           ethereum: {
-            createOnLogin: 'users-without-wallets'
+            createOnLogin: 'off'  
           }
+        },
+        appearance: {
+          theme: 'dark',
+          accentColor: '#D4A017', 
+          showWalletLoginFirst: true 
         }
       }}
     >

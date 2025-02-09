@@ -19,10 +19,11 @@ import { useJurorOpinions } from './hooks/useJurorOpinions';
 import { useWebSocket } from './hooks/useWebSocket';
 
 // Privy
-import { usePrivy } from '@privy-io/react-auth';
+import { usePrivy, useWallets } from '@privy-io/react-auth';
 
 const App = () => {
   const { login, ready, authenticated, user, wallet } = usePrivy();
+  const { wallets, ready: walletsReady } = useWallets();
   
   // State for debate management
   const [currentView, setCurrentView] = useState('welcome');
@@ -79,6 +80,19 @@ const App = () => {
       localStorage.removeItem('walletAddress');
     }
   }, [ready, authenticated, user]);
+
+  useEffect(() => {
+    if (walletsReady) {
+      const externalWallet = wallets?.find(w => w.walletClientType !== 'privy');
+      if (externalWallet) {
+        setWalletAddress(externalWallet.address);
+        setWalletConnected(true);
+      } else {
+        setWalletAddress('');
+        setWalletConnected(false);
+      }
+    }
+  }, [wallets, walletsReady]);
 
   const checkUsername = async (address) => {
     try {
@@ -603,7 +617,7 @@ const App = () => {
             isWalletConnected={walletConnected}
             walletAddress={walletAddress}
             onConnectWallet={handleConnectWallet}
-            wallet={wallet}
+            wallet={wallets?.[0]}
           />
         );
       case 'create':
@@ -689,6 +703,15 @@ const App = () => {
     return (
       <LoadingScreen 
         onLoadComplete={handleLoadComplete} 
+        debateId={currentDebateId}
+      />
+    );
+  }
+
+  if (!ready || !walletsReady) {
+    return (
+      <LoadingScreen 
+        onLoadComplete={() => {}} 
         debateId={currentDebateId}
       />
     );
