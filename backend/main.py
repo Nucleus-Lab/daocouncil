@@ -786,7 +786,7 @@ async def process_debate_result(debate_id: str):
             try:
                 action_result = debate_manager.execute_action(
                     action_prompt=action_prompt,
-                    privy_wallet_id=wallet_info['privy_wallet_id']
+                    privy_wallet_id=wallet_info.privy_wallet_id
                 )
                 judge_message = create_chat_message(
                     db=db,
