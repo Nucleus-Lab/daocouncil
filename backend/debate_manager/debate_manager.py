@@ -73,6 +73,8 @@ class DebateManager:
             str: Agent's response
         """
         try:
+            logger.info(f"Sending message to judge agent at {self.chat_endpoint}")
+            logger.info(f"Request payload: {json.dumps({'debate_id': self.debate_id, 'message': message})}")
             response = requests.post(
                 self.chat_endpoint,
                 json={
