@@ -14,7 +14,7 @@ const CourtRoom = ({ onJurorVote, onWebSocketInit }) => {
     const engineRef = useRef(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    // Initialize game engine
+    // 初始化游戏引擎
     useEffect(() => {
         if (!canvasRef.current) return;
 
@@ -88,29 +88,61 @@ const CourtRoom = ({ onJurorVote, onWebSocketInit }) => {
 
     // Memoize handleVote
     const handleVote = useCallback((jurorId, vote) => {
-        if (!engineRef.current) return;
+        console.log('CourtRoom: Handling vote for juror:', jurorId, 'vote:', vote);  
+        if (!engineRef.current) {
+            console.warn('Game engine not initialized');  
+            return;
+        }
         
         // Map server juror index (0-4) to sprite ID (juror1-juror5)
         const spriteId = `juror${parseInt(jurorId) + 1}`;
+        console.log('Mapped jurorId to spriteId:', spriteId);  
         
-        // Animate only the specific juror
+        // 确保精灵存在
+        const sprite = engineRef.current.sprites.get(spriteId);
+        if (!sprite) {
+            console.warn(`Sprite not found for juror ${spriteId}`);
+            return;
+        }
+
+        // 如果精灵正在动画中，先重置
+        if (sprite.isJumping || sprite.showSpeech) {
+            sprite.isJumping = false;
+            sprite.showSpeech = false;
+            sprite.y = sprite.initialY;
+        }
+
+        // 触发动画
         engineRef.current.handleJurorVote(spriteId, vote);
-    }, []); // Empty dependency array since it uses only refs
+        
+        // 通知父组件
+        if (onJurorVote) {
+            onJurorVote(handleVote);
+        }
+    }, [onJurorVote]);
+
+    // 在组件挂载和 handleVote 更新时注册回调函数
+    useEffect(() => {
+        console.log('CourtRoom: Setting up handlers');
+        if (onJurorVote) {
+            console.log('Registering vote handler with parent');
+            onJurorVote(handleVote);
+        }
+    }, [handleVote, onJurorVote]);
 
     const handleJudgeCommand = useCallback((command) => {
         if (!engineRef.current) return;
         engineRef.current.handleJudgeSpeak(command);
     }, []);
 
-    // Update effect with proper dependencies
+    // 在组件挂载时注册回调函数
     useEffect(() => {
-        if (onJurorVote && handleVote) {
-            onJurorVote(handleVote);
-        }
+        console.log('CourtRoom: Setting up handlers');
         if (onWebSocketInit) {
+            console.log('Registering judge command handler');
             onWebSocketInit(handleJudgeCommand);
         }
-    }, [onJurorVote, handleVote, onWebSocketInit, handleJudgeCommand]);
+    }, [onWebSocketInit, handleJudgeCommand]);
 
     return (
         <div className="relative w-full h-full bg-court-brown flex items-center justify-center">
