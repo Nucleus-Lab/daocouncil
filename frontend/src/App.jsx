@@ -359,8 +359,8 @@ const App = () => {
       setDebateSides(formattedSides);
       
       // 设置初始消息
-      const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
-      await addMessage(initialMessage, null, 0, null, debateInfo);
+      // const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
+      // await addMessage(initialMessage, null, 0, null, debateInfo);
 
       // 加载历史消息
       const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateId}`);
@@ -503,12 +503,16 @@ const App = () => {
     
     if (!handleJudgeCommand) return;
     
-    const messageId = messageData.id;
-    if (messageId.startsWith('result-nft-deploy-') && !messageId.includes('error')) {
+    if (!handleJudgeCommand) return;
+    
+    const message = messageData.message;
+    if (message.includes('NFT Contract Deployed')) {
       handleJudgeCommand("DEPLOYED NFT");
-    } else if (messageId.startsWith('result-nft-mint-') && !messageId.includes('error')) {
-      handleJudgeCommand("MINT NFT");
-    } else if (messageId.startsWith('result-action-') && !messageId.includes('error')) {
+    } else if (message.includes('NFT Minted Successfully')) {
+      handleJudgeCommand("MINTED NFT");
+    } else if (message.includes('NFT Minting Summary')) {
+      handleJudgeCommand("SUMMARY");
+    } else if (message.includes('Action Result')) {
       handleJudgeCommand("ACTION DONE");
     }
   }, [handleJudgeCommand]);
