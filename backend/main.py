@@ -218,7 +218,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
         # Check message count and process debate if needed
         chat_history = get_chat_history(db, request.discussion_id)
         message_count = len(chat_history)
-        MAX_MESSAGES = 2 + 1
+        MAX_MESSAGES = 5 + 1
         if message_count >= MAX_MESSAGES:
             logger.info(f"Debate {request.discussion_id} has reached {MAX_MESSAGES-1} messages, processing results...")
             update_debate_status(db=db, discussion_id=request.discussion_id, is_ended=True)
