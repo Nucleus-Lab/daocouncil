@@ -19,7 +19,8 @@ from backend.database.chat_message import create_chat_message, get_chat_history,
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate, DebateDB, update_debate_status
-from backend.agents.juror import Juror, generate_juror_persona
+from backend.agents.juror import Juror
+from backend.agents.utils import generate_juror_persona, summarize_debate
 from backend.debate_manager.debate_manager import DebateManager
 from backend.database.privy_data import create_privy_wallet, get_privy_wallet
 
@@ -664,7 +665,19 @@ async def process_debate_result(debate_id: str):
         
         # Create metadata URI for NFT
         metadata_uri = f"{FRONTEND_BASE_URL}/debate/{debate_id}"  # Base URL for debate metadata
-            
+        
+        # 0. Summarize the debate
+        debate_summary = summarize_debate(debate.topic, debate.sides, debate_history)
+        judge_message = create_chat_message(
+            db=db,
+            discussion_id=debate_id,
+            user_address=judge_address,
+            username="Judge Agent",
+            message=f"🔍 Debate Summary:\n{debate_summary}",
+            stance=None
+        )
+        await manager.broadcast_message(debate_id, wrap_message(judge_message))
+        
         try:
             # 1. Deploy NFT contract
             try:
