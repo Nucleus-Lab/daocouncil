@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_CONFIG } from '../config/api';
 
 export const useJurorOpinions = () => {
   const [jurorOpinions, setJurorOpinions] = useState({});
