@@ -605,6 +605,8 @@ async def process_debate_result(debate_id: str):
                 "timestamp": str(datetime.datetime.now().isoformat())
             }
             
+            
+            
             # 1. Deploy NFT contract
             try:
                 contract_address, deploy_response = debate_manager.deploy_nft(metadata)
@@ -677,57 +679,31 @@ async def process_debate_result(debate_id: str):
                 )
                 raise
             
-            # 3. Execute action if approved
-            approved = sum(ai_votes.values()) > len(ai_votes) / 2
-            action_result = None
+            # 3. Execute action based on agent's evaluation
             
-            if approved:
-                try:
-                    action_result = debate_manager.execute_action(
-                        action_prompt=debate.action,
-                        privy_wallet_id=wallet_info['privy_wallet_id']
-                    )
-                    await manager.broadcast_message(
-                        debate_id,
-                        {
-                            "type": "new_message",
-                            "data": {
-                                "id": f"result-action-{debate_id}",
-                                "message": f"⚡ Action Executed Successfully!\n{action_result}",
-                                "user_address": judge_address,
-                                "username": "Judge Agent",
-                                "timestamp": datetime.datetime.now().isoformat(),
-                                "stance": None
-                            }
-                        }
-                    )
-                except Exception as e:
-                    error_msg = f"Failed to execute action: {str(e)}"
-                    logger.error(error_msg)
-                    await manager.broadcast_message(
-                        debate_id,
-                        {
-                            "type": "new_message",
-                            "data": {
-                                "id": f"result-action-error-{debate_id}",
-                                "message": f"❌ {error_msg}",
-                                "user_address": judge_address,
-                                "username": "Judge Agent",
-                                "timestamp": datetime.datetime.now().isoformat(),
-                                "stance": None
-                            }
-                        }
-                    )
-                    raise
-            else:
-                action_result = "Debate rejected, no action taken"
+            # Format AI votes and reasoning into a prompt
+            votes_summary = []
+            for juror_id, vote in ai_votes.items():
+                votes_summary.append(f"Juror {juror_id}:\nVote: {vote}")
+            
+            votes_text = "\n".join(votes_summary)
+            action_prompt = f"""Here are the AI jurors' votes:
+                            {votes_text}
+                            Based on these votes, please evaluate and execute the following action if appropriate:
+                            {debate.action}"""
+            
+            try:
+                action_result = debate_manager.execute_action(
+                    action_prompt=action_prompt,
+                    privy_wallet_id=wallet_info['privy_wallet_id']
+                )
                 await manager.broadcast_message(
                     debate_id,
                     {
                         "type": "new_message",
                         "data": {
                             "id": f"result-action-{debate_id}",
-                            "message": f"⚡ {action_result}",
+                            "message": f"⚡ Action Result:\n{action_result}",
                             "user_address": judge_address,
                             "username": "Judge Agent",
                             "timestamp": datetime.datetime.now().isoformat(),
@@ -735,6 +711,24 @@ async def process_debate_result(debate_id: str):
                         }
                     }
                 )
+            except Exception as e:
+                error_msg = f"Failed to execute action: {str(e)}"
+                logger.error(error_msg)
+                await manager.broadcast_message(
+                    debate_id,
+                    {
+                        "type": "new_message",
+                        "data": {
+                            "id": f"result-action-error-{debate_id}",
+                            "message": f"❌ {error_msg}",
+                            "user_address": judge_address,
+                            "username": "Judge Agent",
+                            "timestamp": datetime.datetime.now().isoformat(),
+                            "stance": None
+                        }
+                    }
+                )
+                raise
             
             # Final summary message
             await manager.broadcast_message(
@@ -745,10 +739,9 @@ async def process_debate_result(debate_id: str):
                         "id": f"result-summary-{debate_id}",
                         "message": "✅ Debate processing completed!\n\n"
                                  "Summary:\n"
-                                 f"- Decision: {'APPROVED' if approved else 'REJECTED'}\n"
                                  f"- NFT Contract Deployed: {contract_address}\n"
                                  f"- NFT Minted Successfully\n"
-                                 f"- Action: {'Executed' if approved else 'Skipped'}",
+                                 f"- Action Result: Completed",
                         "user_address": judge_address,
                         "username": "Judge Agent",
                         "timestamp": datetime.datetime.now().isoformat(),
