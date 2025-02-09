@@ -11,7 +11,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def chat_with_judge(debate_id: str, message: str, base_url: str = "http://localhost:8000", 
+def chat_with_judge(debate_id: str, message: str, base_url: str = "http://localhost:8001", 
                    user_agent: str = None, source_app: str = None) -> Optional[str]:
     """
     Send a chat message to the judge agent API.
