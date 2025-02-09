@@ -15,7 +15,7 @@ import json
 # custom modules
 from backend.database import SessionLocal, Base, engine
 from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest
-from backend.database.chat_message import create_chat_message, get_chat_history
+from backend.database.chat_message import create_chat_message, get_chat_history, ChatMessageDB
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate, DebateDB
@@ -74,6 +74,21 @@ class ConnectionManager:
                     continue
 
 manager = ConnectionManager()
+
+
+def wrap_message(message: ChatMessageDB):
+    return {
+        "type": "new_message",
+        "data": {
+            "id": message.id,
+            "discussion_id": message.discussion_id,
+            "user_address": message.user_address,
+            "username": message.username,
+            "message": message.message,
+            "stance": message.stance,
+            "timestamp": message.created_at.isoformat()
+        }
+    }
 
 @app.get("/")
 def read_root():
@@ -150,23 +165,9 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
             stance=request.stance
         )
         db.commit()
-
-        # Prepare message data for broadcast
-        message_data = {
-            "type": "new_message",
-            "data": {
-                "id": new_message.id,
-                "discussion_id": new_message.discussion_id,
-                "user_address": new_message.user_address,
-                "username": new_message.username,
-                "message": new_message.message,
-                "stance": new_message.stance,
-                "timestamp": new_message.created_at.isoformat()
-            }
-        }
         
         # Immediately broadcast the message
-        await manager.broadcast_message(str(request.discussion_id), message_data)
+        await manager.broadcast_message(str(request.discussion_id), wrap_message(new_message))
         
         # Process juror responses in the background
         background_tasks.add_task(
@@ -474,7 +475,7 @@ def return_debate_info(discussion_id: str):
     finally:
         db.close()
 
-@app.get("/juror_results")
+@app.get("/juror_results/{discussion_id}")
 def return_juror_results(discussion_id: int):
     db = SessionLocal()
     try:
@@ -632,20 +633,17 @@ async def process_debate_result(debate_id: str):
             # 1. Deploy NFT contract
             try:
                 contract_address, deploy_response = debate_manager.deploy_nft(metadata)
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "id": f"result-nft-deploy-{debate_id}",
-                            "message": f"🔨 NFT Contract Deployed!\n{deploy_response}",
-                            "user_address": judge_address,
-                            "username": "Judge Agent",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "stance": None
-                        }
-                    }
+                judge_message = create_chat_message(
+                    db=db,
+                    discussion_id=debate_id,
+                    user_address=judge_address,
+                    username="Judge Agent",
+                    message=f"🔨 NFT Contract Deployed!\n{deploy_response}",
+                    stance=None
                 )
+                db.commit()
+                await manager.broadcast_message(debate_id, wrap_message(judge_message))
+                
             except Exception as e:
                 error_msg = f"Failed to deploy NFT contract: {str(e)}"
                 logger.error(error_msg)
@@ -668,20 +666,15 @@ async def process_debate_result(debate_id: str):
             # 2. Mint NFT
             try:
                 mint_response = debate_manager.mint_nft(contract_address)
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "id": f"result-nft-mint-{debate_id}",
-                            "message": f"🎨 NFT Minted Successfully!\n{mint_response}",
-                            "user_address": judge_address,
-                            "username": "Judge Agent",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "stance": None
-                        }
-                    }
+                judge_message = create_chat_message(
+                    db=db,
+                    discussion_id=debate_id,
+                    user_address=judge_address,
+                    username="Judge Agent",
+                    message=f"🎨 NFT Minted Successfully!\n{mint_response}",
+                    stance=None
                 )
+                await manager.broadcast_message(debate_id, wrap_message(judge_message))
             except Exception as e:
                 error_msg = f"Failed to mint NFT: {str(e)}"
                 logger.error(error_msg)
@@ -723,20 +716,16 @@ async def process_debate_result(debate_id: str):
                     action_prompt=action_prompt,
                     privy_wallet_id=wallet_info['privy_wallet_id']
                 )
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "id": f"result-action-{debate_id}",
-                            "message": f"⚡ Action Result:\n{action_result}",
-                            "user_address": judge_address,
-                            "username": "Judge Agent",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "stance": None
-                        }
-                    }
+                judge_message = create_chat_message(
+                    db=db,
+                    discussion_id=debate_id,
+                    user_address=judge_address,
+                    username="Judge Agent",
+                    message=f"⚡ Action Result:\n{action_result}",
+                    stance=None
                 )
+                await manager.broadcast_message(debate_id, wrap_message(judge_message))
+        
             except Exception as e:
                 error_msg = f"Failed to execute action: {str(e)}"
                 logger.error(error_msg)
@@ -757,24 +746,14 @@ async def process_debate_result(debate_id: str):
                 raise
             
             # Final summary message
-            await manager.broadcast_message(
-                debate_id,
-                {
-                    "type": "new_message",
-                    "data": {
-                        "id": f"result-summary-{debate_id}",
-                        "message": "✅ Debate processing completed!\n\n"
-                                 "Summary:\n"
-                                 f"- NFT Contract Deployed: {contract_address}\n"
-                                 f"- NFT Minted Successfully\n"
-                                 f"- Action Result: Completed",
-                        "user_address": judge_address,
-                        "username": "Judge Agent",
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "stance": None
-                    }
-                }
+            judge_message = create_chat_message(
+                db=db,
+                discussion_id=debate_id,
+                user_address=judge_address,
+                username="Judge Agent",
+                message="✅ Debate processing completed!\n\n"
             )
+            await manager.broadcast_message(debate_id, wrap_message(judge_message))
             
             return {
                 "success": True,
