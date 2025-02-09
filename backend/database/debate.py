@@ -1,7 +1,7 @@
 import json
 from datetime import datetime
 from typing import List
-from sqlalchemy import Column, BigInteger, Integer, String, DateTime, Text, Float, ARRAY
+from sqlalchemy import Column, BigInteger, Integer, String, DateTime, Text, Float, ARRAY, Boolean
 from . import Base, engine
 
 # Debate model
@@ -16,6 +16,7 @@ class DebateDB(Base):
     funding = Column(Float(precision=18, asdecimal=True))  # 使用高精度浮点数
     action = Column(Text)  # 使用 Text 而不是 String
     creator_address = Column(String(255))  # 指定长度的 String
+    is_ended = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
@@ -41,6 +42,12 @@ def create_debate(db, discussion_id: int, topic: str, sides: List[str], juror_id
 def get_debate(db, discussion_id: int) -> DebateDB:
     debate = db.query(DebateDB).filter(DebateDB.discussion_id == discussion_id).first()
     return debate  # No need to convert JSON strings back to lists
+
+def update_debate_status(db, discussion_id: int, is_ended: bool):
+    debate = db.query(DebateDB).filter(DebateDB.discussion_id == discussion_id).first()
+    if debate:
+        debate.is_ended = is_ended
+        db.commit()
 
 # 只创建不存在的表
 Base.metadata.create_all(bind=engine)
