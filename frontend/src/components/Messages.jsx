@@ -166,7 +166,7 @@ const Messages = ({
 
       {/* Message Input */}
       <div className="flex-none bg-gradient-to-r from-[#fdf6e3] to-[#f5e6d3] p-4 rounded-lg shadow-sm">
-        {/* Stance Selection */}
+        {/* Stance Selection - Temporarily disabled
         <div className="mb-4 flex items-center gap-3">
           <span className="text-sm font-medium text-[#6b4423]">Your Stance:</span>
           <div className="flex gap-2">
@@ -191,6 +191,7 @@ const Messages = ({
             ))}
           </div>
         </div>
+        */}
 
         <div className="flex gap-3">
           <div className="flex-1 relative">
