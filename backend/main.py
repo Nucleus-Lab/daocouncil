@@ -18,7 +18,7 @@ from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePers
 from backend.database.chat_message import create_chat_message, get_chat_history, ChatMessageDB
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
-from backend.database.debate import create_debate, get_debate, DebateDB
+from backend.database.debate import create_debate, get_debate, DebateDB, update_debate_status
 from backend.agents.juror import Juror, generate_juror_persona
 from backend.debate_manager.debate_manager import DebateManager
 from backend.debate_manager.wallet_storage import get_debate_wallets
@@ -111,8 +111,7 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
         
         conv_history = ""
         for msg in past_messages[:-1]:
-            user = get_user(db, msg.user_address)
-            conv_history += f"{user.username}: {msg.message}\n"
+            conv_history += f"{msg.username}: {msg.message}\n"
         
         new_message = f"{past_messages[-1].username}: {past_messages[-1].message}"
         
@@ -163,6 +162,9 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
     db = SessionLocal()
     try:
         logger.info(f"Received message request: {request}")
+        debate = get_debate(db, request.discussion_id)
+        if debate.is_ended:
+            raise HTTPException(status_code=400, detail="Debate has ended")
         
         new_message = create_chat_message(
             db=db,
@@ -189,7 +191,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
         message_count = len(get_chat_history(db, request.discussion_id))
         if message_count >= 3:
             logger.info(f"Debate {request.discussion_id} has reached 3 messages, processing results...")
-            
+            update_debate_status(db=db, discussion_id=request.discussion_id, is_ended=True)
             # Process debate results in background
             background_tasks.add_task(
                 process_debate_end,
@@ -441,6 +443,16 @@ def post_debate(request: Debate):
             )
             db.commit()
             
+            # post the first message as Judge Agent
+            judge_message = create_chat_message(
+                db=db,
+                discussion_id=discussion_id,
+                user_address=wallet_info['cdp_wallet_address'],
+                username="Judge Agent",
+                message=f"Debate Topic: {request.topic}\nAction: {request.action}",
+                stance=None
+            )
+            db.commit()
             # Return complete debate information including wallet addresses
             return {
                 "discussion_id": new_debate.discussion_id,
@@ -460,7 +472,7 @@ def post_debate(request: Debate):
             logger.error(f"Error in create_debate: {str(e)}")
 
             raise HTTPException(status_code=500, detail=f"Error creating debate: {str(e)}")
-            
+        
     except Exception as e:
         db.rollback()
         logger.error(f"Error in post_debate: {str(e)}")

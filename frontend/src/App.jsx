@@ -359,8 +359,8 @@ const App = () => {
       setDebateSides(formattedSides);
       
       // 设置初始消息
-      const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
-      await addMessage(initialMessage, null, 0, null, debateInfo);
+      // const initialMessage = `Debate Topic: ${debateInfo.topic}\nAction: ${debateInfo.action}`;
+      // await addMessage(initialMessage, null, 0, null, debateInfo);
 
       // 加载历史消息
       const response = await fetch(`${API_CONFIG.BACKEND_URL}/msg/${debateId}`);

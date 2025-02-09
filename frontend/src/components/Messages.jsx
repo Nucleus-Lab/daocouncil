@@ -77,7 +77,7 @@ const Messages = ({
                   <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
                 </svg>
                 <span className="text-xs font-medium text-[#d4a762]">PINNED</span>
-                <span className="font-semibold text-[#2c1810]">Moderator</span>
+                <span className="font-semibold text-[#2c1810]">Judge Agent</span>
                 <span className="text-xs text-[#6b4423]">{messages[0]?.timestamp}</span>
               </div>
               <button 
