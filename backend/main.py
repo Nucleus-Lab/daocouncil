@@ -666,14 +666,81 @@ async def process_debate_result(debate_id: str):
             
             # 2. Mint NFT
             try:
-                mint_response = debate_manager.mint_nft(contract_address)
+                # Get all unique participants from chat history
+                unique_participants = {msg.user_address for msg in chat_history if msg.user_address}  # Filter out empty addresses
+                
+                # Add debate creator's address to the set of participants
+                if debate.creator_address:
+                    unique_participants.add(debate.creator_address)
+                    logger.info(f"Added debate creator address to mint list: {debate.creator_address}")
+                
+                mint_results = []
+                for participant_address in unique_participants:
+                    try:
+                        mint_response = debate_manager.mint_nft(contract_address, participant_address)
+                        mint_results.append({
+                            "address": participant_address,
+                            "response": mint_response,
+                            "status": "success",
+                            "is_creator": participant_address == debate.creator_address
+                        })
+                        
+                        # Broadcast individual minting success
+                        creator_tag = " (Debate Creator)" if participant_address == debate.creator_address else ""
+                        await manager.broadcast_message(
+                            debate_id,
+                            {
+                                "type": "new_message",
+                                "data": {
+                                    "id": f"result-nft-mint-{debate_id}-{participant_address}",
+                                    "message": f"🎨 NFT Minted Successfully to {participant_address}{creator_tag}!\n{mint_response}",
+                                    "user_address": judge_address,
+                                    "username": "Judge Agent",
+                                    "timestamp": datetime.datetime.now().isoformat(),
+                                    "stance": None
+                                }
+                            }
+                        )
+                    except Exception as e:
+                        mint_results.append({
+                            "address": participant_address,
+                            "error": str(e),
+                            "status": "failed",
+                            "is_creator": participant_address == debate.creator_address
+                        })
+                        # Broadcast individual minting failure
+                        creator_tag = " (Debate Creator)" if participant_address == debate.creator_address else ""
+                        await manager.broadcast_message(
+                            debate_id,
+                            {
+                                "type": "new_message",
+                                "data": {
+                                    "id": f"result-nft-mint-error-{debate_id}-{participant_address}",
+                                    "message": f"❌ Failed to mint NFT to {participant_address}{creator_tag}: {str(e)}",
+                                    "user_address": judge_address,
+                                    "username": "Judge Agent",
+                                    "timestamp": datetime.datetime.now().isoformat(),
+                                    "stance": None
+                                }
+                            }
+                        )
+                
+                # Broadcast summary of all minting operations
+                successful_mints = sum(1 for result in mint_results if result["status"] == "success")
+                summary_message = (
+                    f"📊 NFT Minting Summary:\n"
+                    f"Total Participants: {len(unique_participants)}\n"
+                    f"Successful Mints: {successful_mints}\n"
+                    f"Failed Mints: {len(unique_participants) - successful_mints}"
+                )
+                
                 await manager.broadcast_message(
                     debate_id,
                     {
                         "type": "new_message",
                         "data": {
-                            "id": f"result-nft-mint-{debate_id}",
-                            "message": f"🎨 NFT Minted Successfully!\n{mint_response}",
+                            "id": f"result-nft-mint-summary-{debate_id}",
+                            "message": summary_message,
                             "user_address": judge_address,
                             "username": "Judge Agent",
                             "timestamp": datetime.datetime.now().isoformat(),
@@ -681,6 +748,21 @@ async def process_debate_result(debate_id: str):
                         }
                     }
                 )
+                
+                return {
+                    "success": True,
+                    "debate_id": debate_id,
+                    "nft_deployment": deploy_response,
+                    "nft_contract": contract_address,
+                    "nft_minting": mint_results,
+                    "action_execution": action_result,
+                    "voting_results": {
+                        "total_votes": len(ai_votes),
+                        "approval_count": sum(ai_votes.values()),
+                        "votes": ai_votes,
+                        "reasoning": ai_reasoning
+                    }
+                }
             except Exception as e:
                 error_msg = f"Failed to mint NFT: {str(e)}"
                 logger.error(error_msg)
