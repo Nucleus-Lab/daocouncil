@@ -328,15 +328,10 @@ class DebateManager:
             results['nft_minting'] = self.mint_nft(contract_address, metadata)
             
             # 3. Execute action if debate is approved
-            approved = sum(ai_votes.values()) > len(ai_votes) / 2
-            if approved:
-                results['action_execution'] = self.execute_action(
+            results['action_execution'] = self.execute_action(
                     action_prompt,
                     wallet_info['privy_wallet_id']
                 )
-            else:
-                logger.info("Debate rejected, no action taken")
-                results['action_execution'] = "Debate rejected, no action taken"
             
             return results
             
