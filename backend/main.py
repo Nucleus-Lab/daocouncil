@@ -17,7 +17,7 @@ from backend.database import SessionLocal, Base, engine
 from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest
 from backend.database.chat_message import create_chat_message, get_chat_history
 from backend.database.user import create_user, get_user
-from backend.database.juror import create_juror, get_jurors, get_all_juror_results, create_juror_result
+from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate, DebateDB
 from backend.agents.juror import Juror, generate_juror_persona
 from backend.debate_manager.debate_manager import DebateManager
@@ -87,9 +87,11 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
         jurors = get_jurors(db, discussion_id)
         
         conv_history = ""
-        for msg in past_messages:
+        for msg in past_messages[:-1]:
             user = get_user(db, msg.user_address)
             conv_history += f"{user.username}: {msg.message}\n"
+        
+        new_message = f"{past_messages[-1].username}: {past_messages[-1].message}"
         
         sides = []
         for idx, side in enumerate(debate_info.sides):
@@ -98,7 +100,9 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
         results = {}
         for juror_db in jurors:
             juror = Juror(persona=juror_db.persona)
-            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
+            past_reasoning_list = get_juror_result(db, juror_db.juror_id, discussion_id)
+            past_reasoning = past_reasoning_list[-1].reasoning if past_reasoning_list else ""
+            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, past_reasoning=past_reasoning, new_message=new_message)
             results[juror_db.juror_id] = {
                 "result": result,
                 "reasoning": reasoning
@@ -385,8 +389,19 @@ def post_debate(request: Debate):
     db = SessionLocal()
     try:
         # Generate new discussion_id
-        latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
-        discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
+        # latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
+        # discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
+        
+        # 检查是否已存在相同的 discussion_id
+        if request.discussion_id:
+            existing_debate = db.query(DebateDB).filter(DebateDB.discussion_id == request.discussion_id).first()
+            if existing_debate:
+                raise HTTPException(status_code=400, detail=f"Debate with discussion_id {request.discussion_id} already exists")
+            discussion_id = request.discussion_id
+        else:
+            # 如果没有提供 discussion_id，则自动生成
+            latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
+            discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
         
         # Set debate_id for the singleton manager
         debate_manager.debate_id = str(discussion_id)
@@ -458,15 +473,19 @@ def return_debate_info(discussion_id: str):
     finally:
         db.close()
 
-@app.get("/juror_results/{discussion_id}")
+@app.get("/juror_results")
 def return_juror_results(discussion_id: int):
     db = SessionLocal()
     try:
+        logger.info(f"Fetching juror results for discussion_id: {discussion_id}")
         juror_results = get_all_juror_results(db, discussion_id)
+        logger.info(f"Found {len(juror_results)} juror results")
         return juror_results
     except Exception as e:
         logger.error(f"Error getting juror results: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error retrieving juror results")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Error traceback:", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error retrieving juror results: {str(e)}")
     finally:
         db.close()
 
@@ -573,7 +592,7 @@ async def process_debate_result(debate_id: str):
             f"{msg.username}: {msg.message}" 
             for msg in chat_history
         ])
-        
+ 
         # Prepare voting results
         ai_votes = {}
         ai_reasoning = {}
@@ -793,6 +812,8 @@ async def process_debate_result(debate_id: str):
             
     except Exception as e:
         logger.error(f"Error in process_debate_result: {str(e)}")
+        import traceback
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         # Broadcast error message
         await manager.broadcast_message(
             debate_id,

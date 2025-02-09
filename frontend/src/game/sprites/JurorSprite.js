@@ -6,6 +6,7 @@ import {
     BASE_SPRITE_HEIGHT,
     SPRITE_SCALE 
 } from '../constants/dimensions';
+import { SPRITE_IMAGES } from '../constants/sprites';
 
 class JurorSprite {
     constructor(id, initialX, initialY, characterId = 'F_01') {
@@ -19,7 +20,7 @@ class JurorSprite {
         // Speech bubble properties
         this.showSpeech = false;
         this.speechText = '';
-        this.speechDuration = 180; // Increased to 3 seconds (180 frames at 60 FPS)
+        this.speechDuration = Infinity; // 设置为无限，让气泡保持显示
         this.speechCounter = 0;
         this.minSpeechTime = 60; // Keep minimum time at 1 second
         
@@ -31,7 +32,7 @@ class JurorSprite {
         
         // Load sprite image
         this.sprite = new Image();
-        this.sprite.src = `src/assets/32_Characters/cropped/${characterId}/front_idle.png`;
+        this.sprite.src = SPRITE_IMAGES[characterId];
         
         // Debug: Log when sprite is loaded
         this.sprite.onload = () => {
@@ -62,19 +63,7 @@ class JurorSprite {
     }
 
     update() {
-        // Update speech bubble duration
-        if (this.showSpeech) {
-            if (this.speechCounter > 0) {
-                this.speechCounter--;
-            }
-            // Only hide if we've shown for at least the minimum time
-            if (this.speechCounter <= 0 && 
-                (this.speechDuration - this.speechCounter) >= this.minSpeechTime) {
-                this.showSpeech = false;
-            }
-        }
-
-        // Update jump animation
+        // 移除了 speech bubble 的消失逻辑，只保留跳动动画
         if (this.isJumping) {
             if (this.jumpCounter > 0) {
                 // Parabolic jump motion

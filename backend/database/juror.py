@@ -27,7 +27,7 @@ class JurorResultDB(Base):
     juror_id = Column(Integer, index=True)
     discussion_id = Column(BigInteger, index=True)  # 改为 BigInteger
     latest_msg_id = Column(Integer, index=True)
-    result = Column(String)
+    result = Column(Integer)
     reasoning = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -69,7 +69,14 @@ def get_juror_result(db, juror_id: int, discussion_id: int) -> List[JurorResultD
         
 def get_all_juror_results(db, discussion_id: int) -> List[List[JurorResultDB]]:
     # get all juror ids where discussion id is the same
-    juror_ids = db.query(JurorResultDB.juror_id).filter(JurorResultDB.discussion_id == discussion_id).distinct().all()
+    juror_ids = db.query(JurorResultDB.juror_id)\
+        .filter(JurorResultDB.discussion_id == discussion_id)\
+        .distinct()\
+        .all()
+    
+    # 从 Row 对象中提取实际的 juror_id 值
+    juror_ids = [row[0] for row in juror_ids]
+    
     # get all juror results for each juror id
     juror_results = []
     for juror_id_tuple in juror_ids:

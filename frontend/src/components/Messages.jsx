@@ -10,24 +10,15 @@ const Messages = ({
   setUserStance,
   debateSides = [{ id: '1', name: 'Side 1' }, { id: '2', name: 'Side 2' }, { id: '3', name: 'Side 3' }]  // Default values
 }) => {
-  const [replyTo, setReplyTo] = useState(null);
   const messageInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const [isPinnedMessageExpanded, setIsPinnedMessageExpanded] = useState(true);
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       submitMessage();
     }
-  };
-
-  const handleReply = (message) => {
-    setReplyTo(message);
-    messageInputRef.current?.focus();
-  };
-
-  const cancelReply = () => {
-    setReplyTo(null);
   };
 
   const handleKeyDown = (e) => {
@@ -41,16 +32,10 @@ const Messages = ({
     if (currentMessage.trim()) {
       const messageData = {
         text: currentMessage,
-        stance: userStance,
-        replyTo: replyTo ? {
-          id: replyTo.id,
-          sender: replyTo.sender,
-          text: replyTo.text
-        } : null
+        stance: userStance
       };
       onSubmit(messageData);
       setCurrentMessage('');
-      setReplyTo(null);
     }
   };
 
@@ -82,23 +67,46 @@ const Messages = ({
       {/* Pinned Message */}
       {messages[0] && (
         <div className="flex-none mb-3 bg-gradient-to-br from-[#fdf6e3] to-[#f5e6d3] rounded-lg shadow-sm p-3">
-          <div className="flex gap-3">
-            <UserAvatar name="Moderator" size="small" />
-            <div className="flex-1 min-w-0">
+        <div className="flex gap-3">
+          <UserAvatar name="Moderator" size="small" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[#d4a762]" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
-                  </svg>
-                  <span className="text-xs font-medium text-[#d4a762]">PINNED</span>
-                  <span className="font-semibold text-[#2c1810]">Moderator</span>
-                </div>
+                <svg className="w-4 h-4 text-[#d4a762]" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
+                </svg>
+                <span className="text-xs font-medium text-[#d4a762]">PINNED</span>
+                <span className="font-semibold text-[#2c1810]">Moderator</span>
                 <span className="text-xs text-[#6b4423]">{messages[0]?.timestamp}</span>
               </div>
-              <p className="text-sm text-[#4a3223] mt-1.5 leading-relaxed">{messages[0]?.text}</p>
+              <button 
+                onClick={() => setIsPinnedMessageExpanded(!isPinnedMessageExpanded)}
+                className="text-[#6b4423] hover:text-[#2c1810] transition-colors"
+              >
+                <svg className={`w-5 h-5 transform transition-transform ${isPinnedMessageExpanded ? '' : 'rotate-180'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
             </div>
+            {isPinnedMessageExpanded && messages[0] && (
+              <div className="text-sm text-[#4a3223] mt-1.5 space-y-2 flex-1">
+                {messages[0].text && (
+                  <div className="space-y-1">
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">Debate Topic:</span>
+                      <span className="text-[#2c1810]">{messages[0].text.split('\nAction:')[0]?.replace(/^(Topic:|Debate Topic:)/i, '').trim()}</span>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="font-medium">Action:</span>
+                      <span className="text-[#2c1810]">{messages[0].text.split('\nAction:')[1]?.trim()}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
+      </div>
       )}
 
       {/* Chat Messages */}
@@ -143,25 +151,9 @@ const Messages = ({
                   )}
                   <span className="text-xs text-[#6b4423]">{message.timestamp}</span>
                 </div>
-                {message.replyTo && (
-                  <div className="mt-1 mb-2 pl-2 border-l-2 border-[#d4a762]/30">
-                    <div className="text-xs text-[#6b4423]">
-                      Reply to <span className="font-medium">{message.replyTo.username || message.replyTo.sender}</span>
-                    </div>
-                    <div className="text-sm text-[#6b4423] line-clamp-1">
-                      {message.replyTo.text}
-                    </div>
-                  </div>
-                )}
                 <p className="text-sm text-[#4a3223] mt-1.5 leading-relaxed whitespace-pre-wrap break-words">
                   {message.text}
                 </p>
-                <button
-                  onClick={() => handleReply(message)}
-                  className="mt-2 text-xs text-[#6b4423] hover:text-[#2c1810] opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100"
-                >
-                  Reply
-                </button>
               </div>
             </div>
           </div>
@@ -196,25 +188,6 @@ const Messages = ({
             ))}
           </div>
         </div>
-
-        {replyTo && (
-          <div className="mb-4 p-3 bg-[#fdf6e3] rounded-lg border border-[#d4a762] flex items-center justify-between">
-            <div className="flex-1">
-              <div className="text-xs text-[#6b4423]">
-                Reply to <span className="font-medium">{replyTo.username || replyTo.sender}</span>
-              </div>
-              <div className="text-sm text-[#6b4423] line-clamp-1">{replyTo.text}</div>
-            </div>
-            <button
-              onClick={cancelReply}
-              className="ml-2 text-[#6b4423] hover:text-[#2c1810]"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-        )}
 
         <div className="flex gap-3">
           <div className="flex-1 relative">

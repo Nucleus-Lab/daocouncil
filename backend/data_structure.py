@@ -21,8 +21,12 @@ class User:
     username: str
     user_address: str
 
-@dataclass
-class Debate:
+class Side(BaseModel):
+    id: str
+    description: str
+
+class Debate(BaseModel):
+    discussion_id: Optional[int] = None
     topic: str
     sides: List[str]
     jurors: List[str]
@@ -30,8 +34,3 @@ class Debate:
     action: str
     creator_address: str
     creator_username: str
-    discussion_id: Optional[int] = None
-    
-class Side(BaseModel):
-    id: str
-    description: str

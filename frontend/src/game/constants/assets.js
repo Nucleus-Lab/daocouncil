@@ -1,4 +1,7 @@
+import backgroundImage from '../../assets/bg3-1.png';
+import judgeImage from '../../assets/judge.png';
+
 export const ASSETS = {
-    BACKGROUND: 'src/assets/bg3-1.png',
-    JUDGE: 'src/assets/judge.png',
-}; 
+    BACKGROUND: backgroundImage,
+    JUDGE: judgeImage,
+};

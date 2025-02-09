@@ -42,6 +42,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
 
   const [copied, setCopied] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const generateDebateId = () => {
@@ -220,6 +221,8 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Submit button clicked');
+    console.log('Current form data:', formData);
 
     if (!walletAddress) {
       alert('Please connect your wallet first');
@@ -234,7 +237,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
     // 准备发送给后端的数据
     const debateData = {
       discussion_id: parseInt(formData.debateId),
-      topic: formData.topic,
+      topic: formData.topic?.trim(),
       sides: formData.sides.map(side => side.name),
       jurors: formData.jurors.map(juror => juror.persona),
       funding: parseFloat(formData.funding) || 0,
@@ -242,8 +245,15 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
       creator_address: walletAddress
     };
 
+    console.log('Form Data:', formData);
+    console.log('Debate Data:', debateData);
+    console.log('Topic value:', formData.topic);
+    console.log('Topic after trim:', formData.topic?.trim());
+    console.log('Topic type:', typeof formData.topic);
+
     // 验证数据
-    if (!debateData.topic?.trim()) {
+    if (typeof formData.topic !== 'string' || formData.topic.trim().length === 0) {
+      console.log('Topic validation failed');
       alert('Please enter a topic');
       return;
     }
@@ -266,6 +276,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
     console.log('Sending debate data:', debateData);
 
     try {
+      setIsSubmitting(true);
       // 首先创建或更新用户
       const userResponse = await fetch(`${API_CONFIG.BACKEND_URL}/user`, {
         method: 'POST',
@@ -290,6 +301,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          discussion_id: parseInt(formData.debateId),  // 添加 discussion_id
           topic: formData.topic,
           action: formData.actionPrompt,
           creator_address: walletAddress,
@@ -333,8 +345,25 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
     } catch (error) {
       console.error('Error creating debate:', error);
       alert(error.message || 'Failed to create debate. Please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey && e.ctrlKey) {
+      e.preventDefault();
+      handleSubmit(e);
+    }
+  };
+
+  useEffect(() => {
+    // 添加全局键盘事件监听
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, []);
 
   const copyDebateId = async () => {
     try {
@@ -582,7 +611,14 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
                 type="text"
                 required
                 value={formData.topic}
-                onChange={(e) => setFormData(prev => ({ ...prev, topic: e.target.value }))}
+                onChange={(e) => {
+                  console.log('Input value:', e.target.value);
+                  setFormData(prev => {
+                    const newData = { ...prev, topic: e.target.value };
+                    console.log('New form data:', newData);
+                    return newData;
+                  });
+                }}
                 style={{
                   width: '100%',
                   padding: '0.5rem 0.75rem',
@@ -889,32 +925,48 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
             onClick={onCancel}
             style={{
               padding: '0.5rem 1rem',
-              color: '#4a5568',
-              border: 'none',
-              backgroundColor: 'transparent',
+              borderRadius: '0.375rem',
+              backgroundColor: '#ffffff',
+              color: '#4b5563',
+              border: '1px solid #d1d5db',
               cursor: 'pointer'
             }}
-            onMouseOver={e => e.target.style.color = '#1a202c'}
-            onMouseOut={e => e.target.style.color = '#4a5568'}
           >
             Cancel
           </button>
           <button
-            form="create-debate-form"
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
+            disabled={isSubmitting}
             style={{
               padding: '0.5rem 1rem',
-              backgroundColor: '#92400e',
+              borderRadius: '0.375rem',
+              backgroundColor: isSubmitting ? '#9CA3AF' : '#92400e',
               color: '#ffffff',
               border: 'none',
-              borderRadius: '0.375rem',
-              cursor: 'pointer',
+              cursor: isSubmitting ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem',
               transition: 'background-color 0.2s'
             }}
-            onMouseOver={e => e.target.style.backgroundColor = '#78350f'}
-            onMouseOut={e => e.target.style.backgroundColor = '#92400e'}
+            onMouseOver={e => !isSubmitting && (e.target.style.backgroundColor = '#78350f')}
+            onMouseOut={e => !isSubmitting && (e.target.style.backgroundColor = '#92400e')}
           >
-            Create Debate
+            {isSubmitting ? (
+              <>
+                <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Creating...
+              </>
+            ) : (
+              <>
+                Create Debate
+                <span className="text-xs opacity-75">(Ctrl + Enter)</span>
+              </>
+            )}
           </button>
         </div>
       </div>
