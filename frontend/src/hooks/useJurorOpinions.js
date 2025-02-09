@@ -47,7 +47,7 @@ export const useJurorOpinions = () => {
       setIsLoading(true);
       // 将 discussionId 转换为整数
       const numericDiscussionId = parseInt(discussionId, 10);
-      const response = await fetch(`http://localhost:8000/juror_results/?discussion_id=${numericDiscussionId}`);
+      const response = await fetch(`http://localhost:8000/juror_results/${numericDiscussionId}`);
 
       if (!response.ok) {
         const errorData = await response.json();

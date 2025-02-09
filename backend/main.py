@@ -15,7 +15,7 @@ import json
 # custom modules
 from backend.database import SessionLocal, Base, engine
 from backend.data_structure import ChatMessage, User, Debate, Side, GeneratePersonasRequest
-from backend.database.chat_message import create_chat_message, get_chat_history
+from backend.database.chat_message import create_chat_message, get_chat_history, ChatMessageDB
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate, DebateDB
@@ -83,6 +83,21 @@ class ConnectionManager:
 
 manager = ConnectionManager()
 
+
+def wrap_message(message: ChatMessageDB):
+    return {
+        "type": "new_message",
+        "data": {
+            "id": message.id,
+            "discussion_id": message.discussion_id,
+            "user_address": message.user_address,
+            "username": message.username,
+            "message": message.message,
+            "stance": message.stance,
+            "timestamp": message.created_at.isoformat()
+        }
+    }
+
 @app.get("/")
 def read_root():
     return {"message": "Hello, World!"}
@@ -110,7 +125,8 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
             juror = Juror(persona=juror_db.persona)
             past_reasoning_list = get_juror_result(db, juror_db.juror_id, discussion_id)
             past_reasoning = past_reasoning_list[-1].reasoning if past_reasoning_list else ""
-            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, past_reasoning=past_reasoning, new_message=new_message)
+            previous_decision = past_reasoning_list[-1].result if past_reasoning_list else -1
+            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, past_reasoning=past_reasoning, previous_decision=previous_decision, new_message=new_message)
             results[juror_db.juror_id] = {
                 "result": result,
                 "reasoning": reasoning
@@ -157,23 +173,9 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
             stance=request.stance
         )
         db.commit()
-
-        # Prepare message data for broadcast
-        message_data = {
-            "type": "new_message",
-            "data": {
-                "id": new_message.id,
-                "discussion_id": new_message.discussion_id,
-                "user_address": new_message.user_address,
-                "username": new_message.username,
-                "message": new_message.message,
-                "stance": new_message.stance,
-                "timestamp": new_message.created_at.isoformat()
-            }
-        }
         
         # Immediately broadcast the message
-        await manager.broadcast_message(str(request.discussion_id), message_data)
+        await manager.broadcast_message(str(request.discussion_id), wrap_message(new_message))
         
         # Process juror responses in the background
         background_tasks.add_task(
@@ -298,7 +300,7 @@ async def get_juror_response(message_id: int, background_tasks: BackgroundTasks)
         results = {}
         for juror_db in jurors:
             juror = Juror(persona=juror_db.persona)
-            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv=conv_history)
+            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, previous_decision=message.stance)
             results[juror_db.juror_id] = {
                 "result": result,
                 "reasoning": reasoning
@@ -345,12 +347,10 @@ def get_msg(discussion_id: int):
         response = get_chat_history(db, discussion_id)
         messages = []
         for res in response:
-            user_address = res.user_address
-            user = get_user(db, user_address)
             messages.append(ChatMessage(
                 discussion_id=res.discussion_id,
-                username=user.username,
-                user_address=user_address,
+                username=res.username,
+                user_address=res.user_address,
                 message=res.message,
                 timestamp=res.created_at,
                 stance=res.stance  # 添加 stance 到返回的消息中
@@ -481,7 +481,7 @@ def return_debate_info(discussion_id: str):
     finally:
         db.close()
 
-@app.get("/juror_results")
+@app.get("/juror_results/{discussion_id}")
 def return_juror_results(discussion_id: int):
     db = SessionLocal()
     try:
@@ -628,20 +628,17 @@ async def process_debate_result(debate_id: str):
             # 1. Deploy NFT contract
             try:
                 contract_address, deploy_response = debate_manager.deploy_nft(metadata_uri)
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "id": f"result-nft-deploy-{debate_id}",
-                            "message": f"🔨 NFT Contract Deployed!\nMetadata URI: {metadata_uri}\n{deploy_response}",
-                            "user_address": judge_address,
-                            "username": "Judge Agent",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "stance": None
-                        }
-                    }
+                judge_message = create_chat_message(
+                    db=db,
+                    discussion_id=debate_id,
+                    user_address=judge_address,
+                    username="Judge Agent",
+                    message=f"🔨 NFT Contract Deployed!\n{deploy_response}",
+                    stance=None
                 )
+                db.commit()
+                await manager.broadcast_message(debate_id, wrap_message(judge_message))
+                
             except Exception as e:
                 error_msg = f"Failed to deploy NFT contract: {str(e)}"
                 logger.error(error_msg)
@@ -684,20 +681,17 @@ async def process_debate_result(debate_id: str):
                         
                         # Broadcast individual minting success
                         creator_tag = " (Debate Creator)" if participant_address == debate.creator_address else ""
-                        await manager.broadcast_message(
-                            debate_id,
-                            {
-                                "type": "new_message",
-                                "data": {
-                                    "id": f"result-nft-mint-{debate_id}-{participant_address}",
-                                    "message": f"🎨 NFT Minted Successfully to {participant_address}{creator_tag}!\n{mint_response}",
-                                    "user_address": judge_address,
-                                    "username": "Judge Agent",
-                                    "timestamp": datetime.datetime.now().isoformat(),
-                                    "stance": None
-                                }
-                            }
+                        
+                        judge_message = create_chat_message(
+                            db=db,
+                            discussion_id=debate_id,
+                            user_address=judge_address,
+                            username="Judge Agent",
+                            message=f"🎨 NFT Minted Successfully to {participant_address}{creator_tag}!\n{mint_response}",
+                            stance=None
                         )
+                        await manager.broadcast_message(debate_id, wrap_message(judge_message))
+                    
                     except Exception as e:
                         mint_results.append({
                             "address": participant_address,
@@ -731,21 +725,15 @@ async def process_debate_result(debate_id: str):
                     f"Failed Mints: {len(unique_participants) - successful_mints}"
                 )
                 
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "id": f"result-nft-mint-summary-{debate_id}",
-                            "message": summary_message,
-                            "user_address": judge_address,
-                            "username": "Judge Agent",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "stance": None
-                        }
-                    }
+                judge_message = create_chat_message(
+                    db=db,
+                    discussion_id=debate_id,
+                    user_address=judge_address,
+                    username="Judge Agent",
+                    message=summary_message,
+                    stance=None
                 )
-                
+                await manager.broadcast_message(debate_id, wrap_message(judge_message))
             except Exception as e:
                 error_msg = f"Failed to mint NFT: {str(e)}"
                 logger.error(error_msg)
@@ -787,20 +775,16 @@ async def process_debate_result(debate_id: str):
                     action_prompt=action_prompt,
                     privy_wallet_id=wallet_info['privy_wallet_id']
                 )
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "id": f"result-action-{debate_id}",
-                            "message": f"⚡ Action Result:\n{action_result}",
-                            "user_address": judge_address,
-                            "username": "Judge Agent",
-                            "timestamp": datetime.datetime.now().isoformat(),
-                            "stance": None
-                        }
-                    }
+                judge_message = create_chat_message(
+                    db=db,
+                    discussion_id=debate_id,
+                    user_address=judge_address,
+                    username="Judge Agent",
+                    message=f"⚡ Action Result:\n{action_result}",
+                    stance=None
                 )
+                await manager.broadcast_message(debate_id, wrap_message(judge_message))
+        
             except Exception as e:
                 error_msg = f"Failed to execute action: {str(e)}"
                 logger.error(error_msg)
@@ -821,24 +805,14 @@ async def process_debate_result(debate_id: str):
                 raise
             
             # Final summary message
-            await manager.broadcast_message(
-                debate_id,
-                {
-                    "type": "new_message",
-                    "data": {
-                        "id": f"result-summary-{debate_id}",
-                        "message": "✅ Debate processing completed!\n\n"
-                                 "Summary:\n"
-                                 f"- NFT Contract Deployed: {contract_address}\n"
-                                 f"- NFT Minted Successfully\n"
-                                 f"- Action Result: Completed",
-                        "user_address": judge_address,
-                        "username": "Judge Agent",
-                        "timestamp": datetime.datetime.now().isoformat(),
-                        "stance": None
-                    }
-                }
+            judge_message = create_chat_message(
+                db=db,
+                discussion_id=debate_id,
+                user_address=judge_address,
+                username="Judge Agent",
+                message="✅ Debate processing completed!\n\n"
             )
+            await manager.broadcast_message(debate_id, wrap_message(judge_message))
             
             return {
                 "success": True,
