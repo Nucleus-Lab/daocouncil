@@ -69,7 +69,7 @@ const Messages = ({
       {messages[0] && (
         <div className="flex-none mb-3 bg-gradient-to-br from-[#fdf6e3] to-[#f5e6d3] rounded-lg shadow-sm p-3">
         <div className="flex gap-3">
-          <UserAvatar name="Moderator" size="small" />
+          <UserAvatar name={messages[0].sender} size="small" />
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
