@@ -581,6 +581,8 @@ async def process_debate_result(debate_id: str):
             # Get the latest result for each juror
             if juror_results_list:  # Check if there are any results for this juror
                 latest_result = juror_results_list[-1]  # Get the most recent result
+                if type(latest_result.result) != int:
+                    raise HTTPException(status_code=400, detail="Juror result is not an integer")
                 ai_votes[str(latest_result.juror_id)] = latest_result.result
                 ai_reasoning[str(latest_result.juror_id)] = latest_result.reasoning
             
@@ -681,16 +683,20 @@ async def process_debate_result(debate_id: str):
             
             # 3. Execute action based on agent's evaluation
             
-            # Format AI votes and reasoning into a prompt
+            # Format AI votes into a prompt
             votes_summary = []
             for juror_id, vote in ai_votes.items():
-                votes_summary.append(f"Juror {juror_id}:\nVote: {vote}")
+                votes_summary.append(f"Juror {juror_id}:\nVote: { debate.sides[vote] }")
             
             votes_text = "\n".join(votes_summary)
             action_prompt = f"""Here are the AI jurors' votes:
                             {votes_text}
-                            Based on these votes, please evaluate and determine what action to take:
-                            {debate.action}"""
+                            This is the amount of funding currently in the Privy wallet:
+                            {debate.funding}
+                            This is the action prompt:
+                            {debate.action}
+                            Based on the votes and the action prompt, please execute the action if necessary."""
+
             
             try:
                 action_result = debate_manager.execute_action(
