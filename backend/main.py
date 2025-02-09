@@ -136,7 +136,7 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
                 discussion_id=discussion_id, 
                 latest_msg_id=message_id, 
                 juror_id=juror_db.juror_id, 
-                result=result, 
+                result=result,
                 reasoning=reasoning
             )
                 
@@ -315,7 +315,7 @@ async def get_juror_response(message_id: int, background_tasks: BackgroundTasks)
                 discussion_id=message.discussion_id, 
                 latest_msg_id=message_id, 
                 juror_id=juror_db.juror_id, 
-                result=result, 
+                result=result,
                 reasoning=reasoning
             )
                 
@@ -773,7 +773,7 @@ async def process_debate_result(debate_id: str):
             # Format AI votes into a prompt
             votes_summary = []
             for juror_id, vote in ai_votes.items():
-                votes_summary.append(f"Juror {juror_id}:\nVote: { debate.sides[vote] }")
+                votes_summary.append(f"Juror {juror_id}:\nVote: { vote }")
             
             votes_text = "\n".join(votes_summary)
             action_prompt = f"""Here are the AI jurors' votes:
