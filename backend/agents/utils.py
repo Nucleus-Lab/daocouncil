@@ -14,7 +14,7 @@ class DebateSummarizer(dspy.Signature):
     """
     Summarize a debate given a topic and a list of messages.
     Guidelines:
-    1. List out points and group by their sides.
+    1. List out points and group by their sides in point form.
     2. Be short and concise.
     3. Use simple language.
     4. Summarize the overall sentiment of the debate.
