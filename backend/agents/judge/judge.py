@@ -41,8 +41,8 @@ class JudgeAgent:
         llm = ChatOpenAI(
             model=os.getenv("MODEL"),
             temperature=0,
-            openai_api_base=os.getenv("OPENAI_BASE_URL"),
-            openai_api_key=os.getenv("OPENAI_API_KEY")
+            openai_api_base=os.getenv("MODEL_BASE_URL"),
+            openai_api_key=os.getenv("MODEL_API_KEY")
         )
 
         # Initialize CDP Agentkit without Privy wallet data - let it use its own wallet
