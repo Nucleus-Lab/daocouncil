@@ -419,8 +419,7 @@ const App = () => {
       })));
 
       // 获取 juror opinions 历史记录
-      const { aiVotingTrends: historicalVotes } = await fetchJurorHistory(debateId);
-      setAiVotingTrends(historicalVotes);
+      await fetchJurorHistory(debateId);
     } catch (error) {
       console.error('Error loading messages:', error);
       setIsLoading(false);
@@ -464,69 +463,19 @@ const App = () => {
   const handleJurorResponse = useCallback((responseData) => {
     console.log('App: Handling juror response:', responseData);
     const { message_id, responses } = responseData;
+    const timestamp = new Date().toLocaleTimeString();
 
-    console.log('Raw WebSocket juror response data:', responseData);
-    console.log('Current debate sides:', currentDebateInfo.sides);
-
-    // Get debate sides from currentDebateInfo
-    const sides = currentDebateInfo.sides;
-    if (!sides) {
-      console.error('No debate sides available');
-      return;
-    }
-
-    // Format responses similar to historical data
-    const formattedResponses = {};
-    const cumulativeVotes = {};
-
-    // Initialize fresh vote counts for this message
-    cumulativeVotes[message_id] = {};
-    sides.forEach(side => {
-      cumulativeVotes[message_id][side] = 0;
-    });
-    cumulativeVotes[message_id]["Undecided"] = 0;
-
-    // Process each juror response
+    // Update juror opinions
     Object.entries(responses).forEach(([jurorId, data]) => {
       console.log(`Processing juror ${jurorId} response:`, data);
-<<<<<<< HEAD
       const newOpinion = {
         id: `${Date.now()}-${jurorId}`,
         jurorId,
-=======
-      console.log(`Raw result value:`, data.result);
-      let sideName;
-      const result = data.result;
-
-      // Check if result is a valid index in sides array
-      if (result === -1) {
-        sideName = "Undecided";
-        console.log(`Juror ${jurorId} vote marked as Undecided`);
-      } else if (result >= 0 && result < sides.length) {
-        sideName = sides[result];
-        console.log(`Juror ${jurorId} vote mapped to side: ${sideName}`);
-      } else {
-        console.error(`Invalid result index ${result} for sides:`, sides);
-        return; // Skip this invalid result
-      }
-
-      // Update vote count for this message (one vote per juror)
-      cumulativeVotes[message_id][sideName] = (cumulativeVotes[message_id][sideName] || 0) + 1;
-
-      // Format response for juror opinions
-      const key = `${jurorId}-${message_id}`;
-      formattedResponses[key] = {
-        jurorId: String(jurorId),
-        result: sideName,
-        stance: sideName,
->>>>>>> 17163349b67207a6986cf6a7e71bbc9dff113293
         reasoning: data.reasoning,
-        timestamp: new Date().toISOString(),
-        messageId: message_id
+        result: data.result,
+        timestamp: timestamp
       };
-    });
 
-<<<<<<< HEAD
       setJurorOpinions(prevOpinions => ({
         ...prevOpinions,
         [newOpinion.id]: newOpinion
@@ -539,39 +488,20 @@ const App = () => {
       } else {
         console.warn('handleJurorVote is not set');
       }
-=======
-    // Update juror opinions
-    setJurorOpinions(prev => ({
-      ...prev,
-      ...formattedResponses
-    }));
-
-    // Update AI voting trends - only keep entries with message IDs
-    setAiVotingTrends(prev => {
-      const filteredPrev = prev.filter(trend => 
-        trend.time.startsWith('Message ') && 
-        trend.time !== `Message ${message_id}` // Remove any existing entry for this message
-      );
-      return [
-        ...filteredPrev,
-        {
-          time: `Message ${message_id}`,
-          votes: cumulativeVotes[message_id]
-        }
-      ];
->>>>>>> 17163349b67207a6986cf6a7e71bbc9dff113293
     });
 
-    console.log('Formatted WebSocket responses:', formattedResponses);
-    console.log('Updated AI voting trends:', cumulativeVotes);
-
-    // Trigger voting animation if handler exists
-    if (handleJurorVote) {
-      Object.entries(responses).forEach(([jurorId, data]) => {
-        handleJurorVote(jurorId, data.result);
-      });
-    }
-  }, [currentDebateInfo, handleJurorVote]);
+    // Update AI voting trends
+    setAiVotingTrends(prevTrends => [
+      ...prevTrends,
+      {
+        time: timestamp,
+        votes: Object.values(responses).reduce((acc, curr) => {
+          acc[curr.result] = (acc[curr.result] || 0) + 1;
+          return acc;
+        }, {})
+      }
+    ]);
+  }, [handleJurorVote]);
 
   // 设置 handleJurorVote 函数
   const setJurorVoteHandler = useCallback((handler) => {
@@ -643,10 +573,6 @@ const App = () => {
             throw new Error('Debate not found');
           }
           const { debate, jurors } = await response.json();
-          
-          // Get juror history and AI voting trends
-          const { aiVotingTrends: historicalVotes } = await fetchJurorHistory(debateId);
-          setAiVotingTrends(historicalVotes);
           
           // 加入辩论
           await handleJoinDebate({
