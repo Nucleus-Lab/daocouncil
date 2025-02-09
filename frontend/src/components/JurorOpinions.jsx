@@ -162,12 +162,12 @@ const JurorOpinions = ({
           )
         ) : (
           <div className="space-y-4">
+            <AIVotingTrends aiVotingTrends={aiVotingTrends} />
             <VotingTrends 
               messages={messages} 
               debateSides={debateSides} 
               votingData={votingTrends} 
             />
-            <AIVotingTrends aiVotingTrends={aiVotingTrends} />
           </div>
         )}
       </div>
