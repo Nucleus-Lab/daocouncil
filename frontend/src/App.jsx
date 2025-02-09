@@ -503,12 +503,16 @@ const App = () => {
     
     if (!handleJudgeCommand) return;
     
-    const messageId = messageData.id;
-    if (messageId.startsWith('result-nft-deploy-') && !messageId.includes('error')) {
+    if (!handleJudgeCommand) return;
+    
+    const message = messageData.message;
+    if (message.includes('NFT Contract Deployed')) {
       handleJudgeCommand("DEPLOYED NFT");
-    } else if (messageId.startsWith('result-nft-mint-') && !messageId.includes('error')) {
-      handleJudgeCommand("MINT NFT");
-    } else if (messageId.startsWith('result-action-') && !messageId.includes('error')) {
+    } else if (message.includes('NFT Minted Successfully')) {
+      handleJudgeCommand("MINTED NFT");
+    } else if (message.includes('NFT Minting Summary')) {
+      handleJudgeCommand("SUMMARY");
+    } else if (message.includes('Action Result')) {
       handleJudgeCommand("ACTION DONE");
     }
   }, [handleJudgeCommand]);
