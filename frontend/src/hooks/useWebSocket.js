@@ -11,7 +11,8 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse, 
     }
 
     // Convert http(s):// to ws(s)://
-    const wsUrl = API_CONFIG.BACKEND_URL.replace(/^http/, 'ws');
+    const wsUrl = API_CONFIG.BACKEND_URL.replace(/^http/, 'ws').replace(/^https/, 'wss');
+    console.log('Connecting to WebSocket URL:', wsUrl);
     const ws = new WebSocket(`${wsUrl}/ws/${debateId}/${clientId}`);
 
     ws.onopen = () => {
