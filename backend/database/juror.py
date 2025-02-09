@@ -79,9 +79,9 @@ def get_all_juror_results(db, discussion_id: int) -> List[List[JurorResultDB]]:
     
     # get all juror results for each juror id
     juror_results = []
-    for juror_id_tuple in juror_ids:
-        juror_id = juror_id_tuple[0]  # Extract the integer from the tuple
+    for juror_id in juror_ids:
         juror_results.append(get_juror_result(db, juror_id, discussion_id))
     return juror_results
+
 
 Base.metadata.create_all(bind=engine)
