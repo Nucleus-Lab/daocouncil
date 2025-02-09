@@ -1,28 +1,36 @@
 import React, { useState } from 'react';
-import { useLogout } from '@privy-io/react-auth';
+import { useLogout, usePrivy } from '@privy-io/react-auth';
 
 const WelcomePage = ({ onCreateDebate, onJoinDebate, isWalletConnected, walletAddress, onConnectWallet, wallet }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { logout } = useLogout({
     onSuccess: () => {
       console.log('Successfully logged out');
+      // 清理本地状态
+      localStorage.removeItem('username');
+      localStorage.removeItem('walletAddress');
       setIsMenuOpen(false);
     }
   });
 
   const handleDisconnect = async () => {
     try {
-      // 1. 尝试断开钱包连接
+      // 1. 尝试调用钱包的断开连接方法（如果支持）
       if (wallet?.disconnect) {
-        await wallet.disconnect();
+        try {
+          await wallet.disconnect();
+        } catch (error) {
+          console.warn('Wallet disconnect failed, proceeding with logout:', error);
+        }
       }
       
       // 2. 使用 Privy 的登出功能
-      logout();
+      await logout();
       
-      setIsMenuOpen(false);
     } catch (error) {
-      console.error('Error disconnecting wallet:', error);
+      console.error('Error disconnecting:', error);
+      // 即使出错也关闭菜单
+      setIsMenuOpen(false);
     }
   };
 
