@@ -46,7 +46,7 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
       const backgroundColor = `hsla(${hue}, 70%, 50%, 0.1)`;
 
       return {
-        label: `Side ${option}`,
+        label: option,
         data: voteData,
         borderColor,
         backgroundColor,

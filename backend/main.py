@@ -127,7 +127,7 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
             previous_decision = past_reasoning_list[-1].result if past_reasoning_list else -1
             result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, past_reasoning=past_reasoning, previous_decision=previous_decision, new_message=new_message)
             results[juror_db.juror_id] = {
-                "result": result,
+                "result": debate_info.sides[result],
                 "reasoning": reasoning
             }
             create_juror_result(
@@ -135,7 +135,7 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
                 discussion_id=discussion_id, 
                 latest_msg_id=message_id, 
                 juror_id=juror_db.juror_id, 
-                result=result, 
+                result=result,
                 reasoning=reasoning
             )
                 
@@ -304,7 +304,7 @@ async def get_juror_response(message_id: int, background_tasks: BackgroundTasks)
             juror = Juror(persona=juror_db.persona)
             result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, previous_decision=message.stance)
             results[juror_db.juror_id] = {
-                "result": result,
+                "result": debate_info.sides[result],
                 "reasoning": reasoning
             }
             create_juror_result(
@@ -312,7 +312,7 @@ async def get_juror_response(message_id: int, background_tasks: BackgroundTasks)
                 discussion_id=message.discussion_id, 
                 latest_msg_id=message_id, 
                 juror_id=juror_db.juror_id, 
-                result=result, 
+                result=result,
                 reasoning=reasoning
             )
                 
