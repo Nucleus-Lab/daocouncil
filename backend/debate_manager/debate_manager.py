@@ -209,11 +209,11 @@ class DebateManager:
             logger.error(f"Error checking funding status: {str(e)}")
             raise
 
-    def deploy_nft(self, metadata: Dict) -> Tuple[str, str]:
-        """Deploy NFT contract with metadata.
+    def deploy_nft(self, metadata_uri: str) -> Tuple[str, str]:
+        """Deploy NFT contract with metadata URI.
         
         Args:
-            metadata (Dict): NFT metadata
+            metadata_uri (str): URI pointing to the debate metadata
             
         Returns:
             Tuple[str, str]: (contract_address, deployment_response)
@@ -223,8 +223,8 @@ class DebateManager:
             f"Deploy a new NFT contract with the following parameters:\n"
             f"- name: 'Debate NFT {self.debate_id}'\n"
             f"- symbol: 'DEBATE'\n"
-            f"- metadata: {json.dumps(metadata, indent=2)}\n"
-            f"Please deploy the contract with this metadata structure."
+            f"- baseURI: '{metadata_uri}'\n"
+            f"Please deploy the contract with this base URI."
         )
         deploy_response = self.chat_with_agent(deploy_message)
         logger.info(f"NFT deployment response: {deploy_response}")
