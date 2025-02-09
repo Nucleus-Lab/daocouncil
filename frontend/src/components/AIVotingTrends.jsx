@@ -33,10 +33,16 @@ const AIVotingTrends = ({ aiVotingTrends = [] }) => {
   // Prepare data for the chart
   const timePoints = aiVotingTrends.map(trend => trend.time);
   const voteOptions = [...new Set(aiVotingTrends.flatMap(trend => Object.keys(trend.votes)))];
+  
+  // Filter out "undecided" if there are no undecided votes
+  const hasUndecidedVotes = aiVotingTrends.some(trend => trend.votes['undecided'] > 0);
+  const filteredVoteOptions = hasUndecidedVotes 
+    ? voteOptions 
+    : voteOptions.filter(option => option !== 'Undecided');
 
   const data = {
     labels: timePoints,
-    datasets: voteOptions.map((option, index) => {
+    datasets: filteredVoteOptions.map((option, index) => {
       // Get instantaneous vote counts for each time point
       const voteData = aiVotingTrends.map(trend => trend.votes[option] || 0);
 

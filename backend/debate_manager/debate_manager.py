@@ -5,7 +5,8 @@ from web3 import Web3
 import datetime
 import json
 from typing import Dict, Tuple
-from .wallet_storage import store_debate_wallets, get_debate_wallets
+from backend.database.privy_data import create_privy_wallet, get_privy_wallet
+from backend.database import SessionLocal
 
 
 # Add RPC URL configurations
@@ -165,17 +166,25 @@ class DebateManager:
             results['privy_wallet_address'] = addr
             results['privy_wallet_id'] = privy_id_match.group(1)
             
-            # Store wallet information in JSON file
-            # TODO: store in database
-            store_debate_wallets(
-                debate_id=self.debate_id,
-                cdp_wallet_address=results['cdp_wallet_address'],
-                privy_wallet_address=results['privy_wallet_address'],
-                privy_wallet_id=results['privy_wallet_id']
-            )
-            
-            logger.info("Debate initialization completed successfully")
-            return results
+            # Store wallet information in database with proper session management
+            db = SessionLocal()
+            try:
+                create_privy_wallet(
+                    db=db,
+                    debate_id=self.debate_id,
+                    cdp_wallet_address=results['cdp_wallet_address'],
+                    privy_wallet_address=results['privy_wallet_address'],
+                    privy_wallet_id=results['privy_wallet_id']
+                )
+                db.commit()
+                logger.info("Debate initialization completed successfully")
+                return results
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Database error in initialize_debate: {str(e)}")
+                raise
+            finally:
+                db.close()
             
         except Exception as e:
             logger.error(f"Error initializing debate: {str(e)}")
@@ -302,38 +311,46 @@ class DebateManager:
         try:
             results = {}
             
-            # Get wallet information from JSON storage
-            wallet_info = get_debate_wallets(self.debate_id)
-            if not wallet_info:
-                raise ValueError(f"No wallet information found for debate {self.debate_id}")
-            
-            # Create metadata for NFT
-            metadata = {
-                "name": f"Debate NFT {self.debate_id}",
-                "description": "NFT representing a DAO debate result",
-                "debate_id": self.debate_id,
-                "debate_history": debate_history,
-                "ai_votes": ai_votes,
-                "ai_reasoning": ai_reasoning,
-                "privy_wallet_id": wallet_info['privy_wallet_id'],
-                "timestamp": str(datetime.datetime.now().isoformat())
-            }
-            
-            # 1. Deploy NFT contract
-            contract_address, deploy_response = self.deploy_nft(metadata)
-            results['nft_deployment'] = deploy_response
-            
-            # 2. Mint NFT
-            results['nft_minting'] = self.mint_nft(contract_address, wallet_info['privy_wallet_address'])
-            
-            # 3. Execute action if debate is approved
-            results['action_execution'] = self.execute_action(
-                    action_prompt,
-                    wallet_info['privy_wallet_id']
-                )
-            
-            return results
-            
+            # Get wallet information from database with proper session management
+            db = SessionLocal()
+            try:
+                wallet_info = get_privy_wallet(db, self.debate_id)
+                if not wallet_info:
+                    raise ValueError(f"No wallet information found for debate {self.debate_id}")
+
+                # Create metadata for NFT
+                metadata = {
+                    "name": f"Debate NFT {self.debate_id}",
+                    "description": "NFT representing a DAO debate result",
+                    "debate_id": self.debate_id,
+                    "debate_history": debate_history,
+                    "ai_votes": ai_votes,
+                    "ai_reasoning": ai_reasoning,
+                    "privy_wallet_id": wallet_info.privy_wallet_id,
+                    "timestamp": str(datetime.datetime.now().isoformat())
+                }
+                
+                # 1. Deploy NFT contract
+                contract_address, deploy_response = self.deploy_nft(metadata)
+                results['nft_deployment'] = deploy_response
+                
+                # 2. Mint NFT
+                results['nft_minting'] = self.mint_nft(contract_address, wallet_info.privy_wallet_address)
+                
+                # 3. Execute action if debate is approved
+                results['action_execution'] = self.execute_action(
+                        action_prompt,
+                        wallet_info.privy_wallet_id
+                    )
+                
+                return results
+            except Exception as e:
+                db.rollback()
+                logger.error(f"Database error in process_debate_result: {str(e)}")
+                raise
+            finally:
+                db.close()
+                
         except Exception as e:
             logger.error(f"Error processing debate result: {str(e)}")
             raise

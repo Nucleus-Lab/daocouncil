@@ -19,9 +19,9 @@ from backend.database.chat_message import create_chat_message, get_chat_history,
 from backend.database.user import create_user, get_user
 from backend.database.juror import create_juror, get_jurors, get_juror_result, get_all_juror_results, create_juror_result
 from backend.database.debate import create_debate, get_debate, DebateDB, update_debate_status
-from backend.agents.juror import Juror, generate_juror_persona
+from backend.agents.juror import Juror
+from backend.agents.utils import generate_juror_persona, summarize_debate
 from backend.debate_manager.debate_manager import DebateManager
-from backend.debate_manager.wallet_storage import get_debate_wallets
 from backend.database.privy_data import create_privy_wallet, get_privy_wallet
 
 # Constants
@@ -103,7 +103,14 @@ def wrap_message(message: ChatMessageDB):
 def read_root():
     return {"message": "Hello, World!"}
 
-# Add a function to process juror responses
+async def judge_with_juror(juror, topic, sides, conv_history, past_reasoning, previous_decision, new_message):
+    """Helper function to run a single juror's judgment"""
+    # Convert the synchronous judge method result into an awaitable
+    result, reasoning = juror.judge(topic=topic, sides=sides, conv_history=conv_history, 
+                                  past_reasoning=past_reasoning, previous_decision=previous_decision, 
+                                  new_message=new_message)
+    return result, reasoning
+
 async def process_juror_responses(db, message_id: int, discussion_id: int):
     try:
         debate_info = get_debate(db, discussion_id)
@@ -120,22 +127,42 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
         for idx, side in enumerate(debate_info.sides):
             sides.append(Side(id=str(idx), description=side))
         
-        results = {}
+        # Create list of judgment tasks
+        judgment_tasks = []
         for juror_db in jurors:
             juror = Juror(persona=juror_db.persona)
             past_reasoning_list = get_juror_result(db, juror_db.juror_id, discussion_id)
             past_reasoning = past_reasoning_list[-1].reasoning if past_reasoning_list else ""
             previous_decision = past_reasoning_list[-1].result if past_reasoning_list else -1
-            result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, past_reasoning=past_reasoning, previous_decision=previous_decision, new_message=new_message)
-            results[juror_db.juror_id] = {
+            
+            # Create coroutine for each juror
+            task = judge_with_juror(
+                juror=juror,
+                topic=debate_info.topic,
+                sides=sides,
+                conv_history=conv_history,
+                past_reasoning=past_reasoning,
+                previous_decision=previous_decision,
+                new_message=new_message
+            )
+            judgment_tasks.append((juror_db.juror_id, task))
+        
+        # Execute all judgments concurrently
+        results = {}
+        tasks = [task for _, task in judgment_tasks]
+        judgment_results = await asyncio.gather(*tasks)
+        
+        # Process results and save to database
+        for (juror_id, _), (result, reasoning) in zip(judgment_tasks, judgment_results):
+            results[juror_id] = {
                 "result": result,
                 "reasoning": reasoning
             }
             create_juror_result(
-                db=db, 
-                discussion_id=discussion_id, 
-                latest_msg_id=message_id, 
-                juror_id=juror_db.juror_id, 
+                db=db,
+                discussion_id=discussion_id,
+                latest_msg_id=message_id,
+                juror_id=juror_id,
                 result=result,
                 reasoning=reasoning
             )
@@ -191,8 +218,9 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
         # Check message count and process debate if needed
         chat_history = get_chat_history(db, request.discussion_id)
         message_count = len(chat_history)
-        if message_count >= 3:
-            logger.info(f"Debate {request.discussion_id} has reached 3 messages, processing results...")
+        MAX_MESSAGES = 3
+        if message_count >= MAX_MESSAGES:
+            logger.info(f"Debate {request.discussion_id} has reached {MAX_MESSAGES-1} messages, processing results...")
             update_debate_status(db=db, discussion_id=request.discussion_id, is_ended=True)
             # Process debate results in background
             background_tasks.add_task(
@@ -206,7 +234,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
                 discussion_id=request.discussion_id,
                 user_address=chat_history[0].user_address,
                 username=chat_history[0].username,
-                message="Debate has reached 3 messages and will now be processed for final results.",
+                message=f"Debate has reached {MAX_MESSAGES-1} messages and will now be processed for final results.",
                 stance=None
             )
             
@@ -546,14 +574,14 @@ async def check_debate_funding_status(debate_id: str):
         # Set debate_id for the singleton manager
         debate_manager.debate_id = debate_id
         
-        # Get wallet information
-        wallet_info = get_debate_wallets(debate_id)
+        # Get wallet information with proper session handling
+        wallet_info = get_privy_wallet(db, debate_id)
         if not wallet_info:
             raise HTTPException(status_code=404, detail="Wallet information not found")
             
         # Check CDP wallet funding
         cdp_funded, cdp_balance = debate_manager.check_funding_status(
-            wallet_info['cdp_wallet_address'],
+            wallet_info.cdp_wallet_address,  # Use the proper attribute access
             0.0001  # Required CDP gas amount
         )
         
@@ -562,7 +590,7 @@ async def check_debate_funding_status(debate_id: str):
         privy_balance = 0
         if debate.funding > 0:
             privy_funded, privy_balance = debate_manager.check_funding_status(
-                wallet_info['privy_wallet_address'],
+                wallet_info.privy_wallet_address,  # Use the proper attribute access
                 float(debate.funding)
             )
         else:
@@ -586,7 +614,7 @@ async def check_debate_funding_status(debate_id: str):
         logger.error(f"Error checking funding status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error checking funding status: {str(e)}")
     finally:
-        db.close()
+        db.close()  # Always close the session
 
 @app.post("/debate/{debate_id}/process_result")
 async def process_debate_result(debate_id: str):
@@ -628,18 +656,29 @@ async def process_debate_result(debate_id: str):
                 ai_votes[str(latest_result.juror_id)] = latest_result.result
                 ai_reasoning[str(latest_result.juror_id)] = latest_result.reasoning
             
-        # Process the result
+        # Get wallet information for the debate
+        wallet_info = get_privy_wallet(db, debate_id)
+        if not wallet_info:
+            raise HTTPException(status_code=404, detail="Wallet information not found")
+        
+        judge_address = wallet_info.cdp_wallet_address  # Use proper attribute access
+        
+        # Create metadata URI for NFT
+        metadata_uri = f"{FRONTEND_BASE_URL}/debate/{debate_id}"  # Base URL for debate metadata
+        
+        # 0. Summarize the debate
+        debate_summary = summarize_debate(debate.topic, debate.sides, debate_history)
+        judge_message = create_chat_message(
+            db=db,
+            discussion_id=debate_id,
+            user_address=judge_address,
+            username="Judge Agent",
+            message=f"🔍 Debate Summary:\n{debate_summary}",
+            stance=None
+        )
+        await manager.broadcast_message(debate_id, wrap_message(judge_message))
+        
         try:
-            # Get wallet information for the debate
-            wallet_info = get_debate_wallets(debate_id)
-            if not wallet_info:
-                raise HTTPException(status_code=404, detail="Wallet information not found")
-            
-            judge_address = wallet_info['cdp_wallet_address']
-            
-            # Create metadata URI for NFT
-            metadata_uri = f"{FRONTEND_BASE_URL}/debate/{debate_id}"  # Base URL for debate metadata
-            
             # 1. Deploy NFT contract
             try:
                 contract_address, deploy_response = debate_manager.deploy_nft(metadata_uri)
@@ -788,7 +827,7 @@ async def process_debate_result(debate_id: str):
             try:
                 action_result = debate_manager.execute_action(
                     action_prompt=action_prompt,
-                    privy_wallet_id=wallet_info['privy_wallet_id']
+                    privy_wallet_id=wallet_info.privy_wallet_id
                 )
                 judge_message = create_chat_message(
                     db=db,
