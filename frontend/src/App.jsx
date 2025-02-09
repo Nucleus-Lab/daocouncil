@@ -481,13 +481,15 @@ const App = () => {
         [newOpinion.id]: newOpinion
       }));
 
-      // Trigger voting animation
-      if (handleJurorVote) {
-        console.log(`Triggering vote animation for juror ${jurorId} with result ${data.result}`);
-        handleJurorVote(jurorId, data.result);
-      } else {
-        console.warn('handleJurorVote is not set');
-      }
+      // 将动画触发延迟到下一个事件循环，给handleJurorVote一个设置的机会
+      setTimeout(() => {
+        if (handleJurorVote) {
+          console.log(`Triggering vote animation for juror ${jurorId} with result ${data.result}`);
+          handleJurorVote(jurorId, data.result);
+        } else {
+          console.warn('handleJurorVote is not set, animation skipped');
+        }
+      }, 0);
     });
 
     // Update AI voting trends

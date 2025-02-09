@@ -86,11 +86,6 @@ const CourtRoom = ({ onJurorVote, onWebSocketInit }) => {
         return () => engine.stop();
     }, []);
 
-    const handleJudgeCommand = useCallback((command) => {
-        if (!engineRef.current) return;
-        engineRef.current.handleJudgeSpeak(command);
-    }, []);
-
     // Memoize handleVote
     const handleVote = useCallback((jurorId, vote) => {
         console.log('CourtRoom: Handling vote for juror:', jurorId, 'vote:', vote);  
@@ -122,22 +117,32 @@ const CourtRoom = ({ onJurorVote, onWebSocketInit }) => {
         
         // 通知父组件
         if (onJurorVote) {
-            onJurorVote(jurorId, vote);
+            onJurorVote(handleVote);
         }
     }, [onJurorVote]);
 
-    // 在组件挂载时注册回调函数
+    // 在组件挂载和 handleVote 更新时注册回调函数
     useEffect(() => {
         console.log('CourtRoom: Setting up handlers');
         if (onJurorVote) {
             console.log('Registering vote handler with parent');
             onJurorVote(handleVote);
         }
+    }, [handleVote, onJurorVote]);
+
+    const handleJudgeCommand = useCallback((command) => {
+        if (!engineRef.current) return;
+        engineRef.current.handleJudgeSpeak(command);
+    }, []);
+
+    // 在组件挂载时注册回调函数
+    useEffect(() => {
+        console.log('CourtRoom: Setting up handlers');
         if (onWebSocketInit) {
             console.log('Registering judge command handler');
             onWebSocketInit(handleJudgeCommand);
         }
-    }, [onJurorVote, handleVote, onWebSocketInit, handleJudgeCommand]);
+    }, [onWebSocketInit, handleJudgeCommand]);
 
     return (
         <div className="relative w-full h-full bg-court-brown flex items-center justify-center">
