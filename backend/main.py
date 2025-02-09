@@ -127,7 +127,7 @@ async def process_juror_responses(db, message_id: int, discussion_id: int):
             previous_decision = past_reasoning_list[-1].result if past_reasoning_list else -1
             result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, past_reasoning=past_reasoning, previous_decision=previous_decision, new_message=new_message)
             results[juror_db.juror_id] = {
-                "result": debate_info.sides[result],
+                "result": result,
                 "reasoning": reasoning
             }
             create_juror_result(
@@ -189,7 +189,7 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
         
         # Check message count and process debate if needed
         message_count = len(get_chat_history(db, request.discussion_id))
-        if message_count >= 3:
+        if message_count >= 6:
             logger.info(f"Debate {request.discussion_id} has reached 3 messages, processing results...")
             update_debate_status(db=db, discussion_id=request.discussion_id, is_ended=True)
             # Process debate results in background
@@ -304,7 +304,7 @@ async def get_juror_response(message_id: int, background_tasks: BackgroundTasks)
             juror = Juror(persona=juror_db.persona)
             result, reasoning = juror.judge(topic=debate_info.topic, sides=sides, conv_history=conv_history, previous_decision=message.stance)
             results[juror_db.juror_id] = {
-                "result": debate_info.sides[result],
+                "result": result,
                 "reasoning": reasoning
             }
             create_juror_result(
@@ -770,7 +770,7 @@ async def process_debate_result(debate_id: str):
             # Format AI votes into a prompt
             votes_summary = []
             for juror_id, vote in ai_votes.items():
-                votes_summary.append(f"Juror {juror_id}:\nVote: { debate.sides[vote] }")
+                votes_summary.append(f"Juror {juror_id}:\nVote: { vote }")
             
             votes_text = "\n".join(votes_summary)
             action_prompt = f"""Here are the AI jurors' votes:
