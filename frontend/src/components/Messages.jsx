@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import UserAvatar from './UserAvatar';
+import ReactMarkdown from 'react-markdown';
 
 const Messages = ({
   messages = [],  // 添加默认值
@@ -151,9 +152,11 @@ const Messages = ({
                   )}
                   <span className="text-xs text-[#6b4423]">{message.timestamp}</span>
                 </div>
-                <p className="text-sm text-[#4a3223] mt-1.5 leading-relaxed whitespace-pre-wrap break-words">
-                  {message.text}
-                </p>
+                <div className="text-sm text-[#4a3223] mt-1.5 leading-relaxed">
+                  <ReactMarkdown className="prose prose-sm max-w-none prose-headings:text-[#2c1810] prose-p:text-[#4a3223] prose-a:text-[#78a055] prose-strong:text-[#2c1810] prose-code:text-[#c15b3f] prose-code:bg-[#fdf6e3] prose-code:px-1 prose-code:py-0.5 prose-code:rounded">
+                    {message.text}
+                  </ReactMarkdown>
+                </div>
               </div>
             </div>
           </div>
