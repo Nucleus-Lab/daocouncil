@@ -489,29 +489,9 @@ const App = () => {
     // Process each juror response
     Object.entries(responses).forEach(([jurorId, data]) => {
       console.log(`Processing juror ${jurorId} response:`, data);
-      const newOpinion = {
-        id: `${Date.now()}-${jurorId}`,
-        jurorId,
-        reasoning: data.reasoning,
-        result: data.result,
-        timestamp: timestamp
-      };
-
-      setJurorOpinions(prevOpinions => ({
-        ...prevOpinions,
-        [newOpinion.id]: newOpinion
-      }));
-
-      // 将动画触发延迟到下一个事件循环，给handleJurorVote一个设置的机会
-      setTimeout(() => {
-        if (handleJurorVote) {
-          console.log(`Triggering vote animation for juror ${jurorId} with result ${data.result}`);
-          handleJurorVote(jurorId, data.result);
-        } else {
-          console.warn('handleJurorVote is not set, animation skipped');
-        }
-      }, 0);
       console.log(`Raw result value:`, data.result);
+
+      // 处理 stance 映射
       let sideName;
       const result = data.result;
 
@@ -527,22 +507,37 @@ const App = () => {
         return; // Skip this invalid result
       }
 
-      // Update vote count for this message (one vote per juror)
+      // Update vote count for this message
       cumulativeVotes[message_id][sideName] = (cumulativeVotes[message_id][sideName] || 0) + 1;
 
-      // Format response for juror opinions
+      // 创建统一的时间戳
+      const timestamp = new Date().toISOString();
+      const localTimestamp = new Date().toLocaleTimeString();
+
+      // Format response for juror opinions (使用带时区的ISO时间戳)
       const key = `${jurorId}-${message_id}`;
       formattedResponses[key] = {
+        id: `${Date.now()}-${jurorId}`,
         jurorId: String(jurorId),
         result: sideName,
         stance: sideName,
         reasoning: data.reasoning,
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp,
         messageId: message_id
       };
+
+      // 将动画触发延迟到下一个事件循环
+      setTimeout(() => {
+        if (handleJurorVote) {
+          console.log(`Triggering vote animation for juror ${jurorId} with result ${data.result}`);
+          handleJurorVote(jurorId, data.result);
+        } else {
+          console.warn('handleJurorVote is not set, animation skipped');
+        }
+      }, 0);
     });
 
-    // Update juror opinions
+    // Update juror opinions with formatted responses
     setJurorOpinions(prev => ({
       ...prev,
       ...formattedResponses
@@ -565,13 +560,6 @@ const App = () => {
 
     console.log('Formatted WebSocket responses:', formattedResponses);
     console.log('Updated AI voting trends:', cumulativeVotes);
-
-    // Trigger voting animation if handler exists
-    if (handleJurorVote) {
-      Object.entries(responses).forEach(([jurorId, data]) => {
-        handleJurorVote(jurorId, data.result);
-      });
-    }
   }, [currentDebateInfo, handleJurorVote]);
 
   // 设置 handleJurorVote 函数
