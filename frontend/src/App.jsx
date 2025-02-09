@@ -623,6 +623,9 @@ const App = () => {
       const path = window.location.pathname;
       const match = path.match(/^\/debate\/(\d+)$/);
       
+      console.log('match:', match);
+      console.log('path:', path);
+
       if (match && match[1]) {
         const debateId = match[1];
         try {
