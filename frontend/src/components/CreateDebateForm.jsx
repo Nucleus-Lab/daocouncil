@@ -165,10 +165,6 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
           `Click OK to proceed with the transaction. Make sure your wallet is unlocked.`
         );
 
-
-
-
-
         if (shouldProceed) {
           try {
             console.log('User confirmed Privy funding, proceeding with transaction...');
@@ -716,29 +712,52 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
                 color: '#1a202c',
                 marginBottom: '0.5rem'
               }}>
-                Funding
+                Funding (ETH)
               </label>
-              <input
-                type="number"
-                step="any"
-                min="0"
-                value={formData.funding === 0 && formData.funding === '' ? '' : formData.funding}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  const funding = value === '' ? '' : Number(parseFloat(value).toFixed(18));
-                  setFormData(prev => ({ ...prev, funding }));
-                }}
-                style={{
-                  width: '100%',
-                  padding: '0.5rem 0.75rem',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '0.375rem',
-                  backgroundColor: '#ffffff',
-                  color: '#1a202c',
-                  outline: 'none'
-                }}
-                placeholder="Enter funding amount"
-              />
+              <div style={{ 
+                position: 'relative', 
+                display: 'flex', 
+                alignItems: 'center' 
+              }}>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={formData.funding === 0 && formData.funding === '' ? '' : formData.funding}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    const funding = value === '' ? '' : Number(parseFloat(value).toFixed(18));
+                    setFormData(prev => ({ ...prev, funding }));
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '0.5rem 0.75rem',
+                    paddingRight: '3.5rem', // Add space for the ETH label
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '0.375rem',
+                    backgroundColor: '#ffffff',
+                    color: '#1a202c',
+                    outline: 'none'
+                  }}
+                  placeholder="Enter funding amount"
+                />
+                <span style={{
+                  position: 'absolute',
+                  right: '0.75rem',
+                  color: '#6b7280',
+                  pointerEvents: 'none',
+                  fontSize: '0.875rem'
+                }}>
+                  ETH
+                </span>
+              </div>
+              <p style={{
+                fontSize: '0.75rem',
+                color: '#6b7280',
+                marginTop: '0.25rem'
+              }}>
+                Enter the amount of ETH to fund this debate
+              </p>
             </div>
 
             {/* Action Prompt */}

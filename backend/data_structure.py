@@ -21,6 +21,13 @@ class User:
     username: str
     user_address: str
 
+@dataclass
+class PrivyWalletRequest:
+    debate_id: int
+    cdp_wallet_address: str
+    privy_wallet_address: str
+    privy_wallet_id: str
+
 class Side(BaseModel):
     id: str
     description: str
