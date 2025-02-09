@@ -39,10 +39,7 @@ const App = () => {
     // 从 localStorage 读取缓存的状态
     return !!localStorage.getItem('username');
   });
-  const [debateSides, setDebateSides] = useState([
-    { id: '1', name: 'Side 1' },
-    { id: '2', name: 'Side 2' }
-  ]);
+  const [debateSides, setDebateSides] = useState([]); 
   const [currentDebateInfo, setCurrentDebateInfo] = useState({}); 
   const [messages, setMessages] = useState([]);
   const [currentMessage, setCurrentMessage] = useState('');
@@ -395,6 +392,13 @@ const App = () => {
 
     // 更新 URL
     window.history.pushState({}, '', `/debate/${debateId}`);
+
+    // 设置辩论双方
+    const formattedSides = debateInfo.sides.map((side, index) => ({
+      id: (index + 1).toString(),
+      name: side
+    }));
+    setDebateSides(formattedSides);
 
     // 加载历史消息
     try {
