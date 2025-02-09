@@ -666,7 +666,7 @@ async def process_debate_result(debate_id: str):
             
             # 2. Mint NFT
             try:
-                mint_response = debate_manager.mint_nft(contract_address, metadata)
+                mint_response = debate_manager.mint_nft(contract_address)
                 await manager.broadcast_message(
                     debate_id,
                     {
