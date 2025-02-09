@@ -188,7 +188,8 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
         )
         
         # Check message count and process debate if needed
-        message_count = len(get_chat_history(db, request.discussion_id))
+        chat_history = get_chat_history(db, request.discussion_id)
+        message_count = len(chat_history)
         if message_count >= 3:
             logger.info(f"Debate {request.discussion_id} has reached 3 messages, processing results...")
             update_debate_status(db=db, discussion_id=request.discussion_id, is_ended=True)
@@ -199,16 +200,17 @@ async def post_msg(request: ChatMessage, background_tasks: BackgroundTasks):
             )
             
             # Prepare debate end notification
-            end_notification = {
-                "type": "new_message",
-                "data": {
-                    "username": "Judge Agent",
-                    "user_address": "",
-                    "message": "Debate has reached 3 messages and will now be processed for final results.",
-                    "timestamp": datetime.datetime.now().isoformat()
-                }
-            }
-            await manager.broadcast_message(str(request.discussion_id), end_notification)
+            end_message = create_chat_message(
+                db=db,
+                discussion_id=request.discussion_id,
+                user_address=chat_history[0].user_address,
+                username=chat_history[0].username,
+                message="Debate has reached 3 messages and will now be processed for final results.",
+                stance=None
+            )
+            
+            db.commit()
+            await manager.broadcast_message(str(request.discussion_id), wrap_message(end_message))
         
         return {"message_id": new_message.id, "status": "success"}
     except Exception as e:
@@ -229,36 +231,36 @@ async def process_debate_end(debate_id: str):
             
             print("response from process_debate_result: ", response)
             
-            if response.status_code == 200:
-                result = response.json()
-                # Broadcast the results using new_message type
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "username": "Judge Agent",
-                            "user_address": result.get("judge_address", ""),
-                            "message": "✅ Final Results:\n" + json.dumps(result, indent=2),
-                            "timestamp": datetime.datetime.now().isoformat()
-                        }
-                    }
-                )
-            else:
-                logger.error(f"Error processing debate end: {response.text}")
-                # Broadcast error using new_message type
-                await manager.broadcast_message(
-                    debate_id,
-                    {
-                        "type": "new_message",
-                        "data": {
-                            "username": "Judge Agent",
-                            "user_address": "",
-                            "message": f"❌ Error processing debate results:\n{response.text}",
-                            "timestamp": datetime.datetime.now().isoformat()
-                        }
-                    }
-                )
+            # if response.status_code == 200:
+            #     result = response.json()
+            #     # Broadcast the results using new_message type
+            #     await manager.broadcast_message(
+            #         debate_id,
+            #         {
+            #             "type": "new_message",
+            #             "data": {
+            #                 "username": "Judge Agent",
+            #                 "user_address": result.get("judge_address", ""),
+            #                 "message": "✅ Final Results:\n" + json.dumps(result, indent=2),
+            #                 "timestamp": datetime.datetime.now().isoformat()
+            #             }
+            #         }
+            #     )
+            # else:
+            #     logger.error(f"Error processing debate end: {response.text}")
+            #     # Broadcast error using new_message type
+            #     await manager.broadcast_message(
+            #         debate_id,
+            #         {
+            #             "type": "new_message",
+            #             "data": {
+            #                 "username": "Judge Agent",
+            #                 "user_address": "",
+            #                 "message": f"❌ Error processing debate results:\n{response.text}",
+            #                 "timestamp": datetime.datetime.now().isoformat()
+            #             }
+            #         }
+            #     )
                 
     except Exception as e:
         logger.error(f"Error in process_debate_end: {str(e)}")
@@ -814,7 +816,7 @@ async def process_debate_result(debate_id: str):
                         }
                     }
                 )
-                raise
+                raise HTTPException(status_code=500, detail=f"Error executing action: {str(e)}")
             
             # Final summary message
             judge_message = create_chat_message(
