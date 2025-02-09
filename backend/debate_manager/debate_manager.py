@@ -73,6 +73,8 @@ class DebateManager:
             str: Agent's response
         """
         try:
+            logger.info(f"Sending message to judge agent at {self.chat_endpoint}")
+            logger.info(f"Request payload: {json.dumps({'debate_id': self.debate_id, 'message': message})}")
             response = requests.post(
                 self.chat_endpoint,
                 json={
@@ -209,11 +211,11 @@ class DebateManager:
             logger.error(f"Error checking funding status: {str(e)}")
             raise
 
-    def deploy_nft(self, metadata: Dict) -> Tuple[str, str]:
-        """Deploy NFT contract with metadata.
+    def deploy_nft(self, metadata_uri: str) -> Tuple[str, str]:
+        """Deploy NFT contract with metadata URI.
         
         Args:
-            metadata (Dict): NFT metadata
+            metadata_uri (str): URI pointing to the debate metadata
             
         Returns:
             Tuple[str, str]: (contract_address, deployment_response)
@@ -223,8 +225,8 @@ class DebateManager:
             f"Deploy a new NFT contract with the following parameters:\n"
             f"- name: 'Debate NFT {self.debate_id}'\n"
             f"- symbol: 'DEBATE'\n"
-            f"- metadata: {json.dumps(metadata, indent=2)}\n"
-            f"Please deploy the contract with this metadata structure."
+            f"- baseURI: '{metadata_uri}'\n"
+            f"Please deploy the contract with this base URI."
         )
         deploy_response = self.chat_with_agent(deploy_message)
         logger.info(f"NFT deployment response: {deploy_response}")
@@ -245,17 +247,18 @@ class DebateManager:
         
         return addr, deploy_response
         
-    def mint_nft(self, contract_address: str) -> str:
-        """Mint NFT to the Privy vault.
+    def mint_nft(self, contract_address: str, target_address: str) -> str:
+        """Mint NFT to the specified address.
         
         Args:
             contract_address (str): Deployed contract address
+            target_address (str): Address to mint the NFT to
             
         Returns:
             str: Minting response
         """
-        logger.info("Minting NFT...")
-        mint_message = f"Mint an NFT from contract {contract_address} to the Privy vault"
+        logger.info(f"Minting NFT to address: {target_address}...")
+        mint_message = f"Mint an NFT from contract {contract_address} to the address {target_address}"
         mint_response = self.chat_with_agent(mint_message)
         logger.info(f"NFT minting response: {mint_response}")
         return mint_response
@@ -321,7 +324,7 @@ class DebateManager:
             results['nft_deployment'] = deploy_response
             
             # 2. Mint NFT
-            results['nft_minting'] = self.mint_nft(contract_address)
+            results['nft_minting'] = self.mint_nft(contract_address, wallet_info['privy_wallet_address'])
             
             # 3. Execute action if debate is approved
             results['action_execution'] = self.execute_action(
