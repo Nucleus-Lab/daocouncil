@@ -32,9 +32,9 @@ Traditional DAO voting mechanisms often favor large token holders, undermining f
 
 ## Deployed URLs
 
-Frontend: to be deployed
+Frontend: [https://daocouncil.onrender.com/](https://daocouncil.onrender.com/)
 
-Backend: https://daocouncil-backend-service.onrender.com/
+Backend: [https://daocouncil-backend-service.onrender.com/](https://daocouncil-backend-service.onrender.com/)
 
 ## Installation
 
