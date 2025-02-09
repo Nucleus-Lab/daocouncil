@@ -151,15 +151,22 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
         }
       }
 
+      const ESTIMATED_GAS_FEE = 0.00005;
+
       // Step 2: Fund Privy Wallet (if funding is required)
       if (formData.funding > 0 && !fundingStatus.privyFunded) {
         setFundingStep('privy');
         console.log('Initiating Privy wallet funding...');
         const shouldProceed = window.confirm(
-          `Please send ${formData.funding} ETH to the Privy wallet for debate funding.\n\n` +
+          `Please send funding ${formData.funding} + estimated gas fee of ${ESTIMATED_GAS_FEE} ETH to the Privy wallet for debate funding.\n\n` +
+          `Total amount to send: ${formData.funding + ESTIMATED_GAS_FEE} ETH\n\n` +
           `Address: ${result.privy_wallet_address}\n\n` +
           `Click OK to proceed with the transaction. Make sure your wallet is unlocked.`
         );
+
+
+
+
 
         if (shouldProceed) {
           try {
@@ -167,7 +174,7 @@ const CreateDebateForm = ({ onSubmit, onCancel, walletAddress, username }) => {
             const privyHash = await fundWallet(
               window.ethereum,
               result.privy_wallet_address,
-              formData.funding,
+              formData.funding + ESTIMATED_GAS_FEE,
               'Privy wallet (debate funding)'
             );
             console.log('Privy funding transaction hash:', privyHash);
