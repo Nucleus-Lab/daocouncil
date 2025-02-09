@@ -296,9 +296,16 @@ def get_user_info(user_address: str):
 def post_debate(request: Debate):
     db = SessionLocal()
     try:
-        # 生成新的 discussion_id
-        latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
-        discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
+        # 检查是否已存在相同的 discussion_id
+        if request.discussion_id:
+            existing_debate = db.query(DebateDB).filter(DebateDB.discussion_id == request.discussion_id).first()
+            if existing_debate:
+                raise HTTPException(status_code=400, detail=f"Debate with discussion_id {request.discussion_id} already exists")
+            discussion_id = request.discussion_id
+        else:
+            # 如果没有提供 discussion_id，则自动生成
+            latest_debate = db.query(DebateDB).order_by(DebateDB.discussion_id.desc()).first()
+            discussion_id = (latest_debate.discussion_id + 1) if latest_debate else 1
         
         # 创建陪审团成员
         juror_ids = []
@@ -328,8 +335,8 @@ def post_debate(request: Debate):
                 "funding": new_debate.funding,
                 "jurors": request.jurors,
                 "creator_address": new_debate.creator_address,
-                "creator_username": request.creator_username,  # 添加创建者用户名
-                "created_at": new_debate.created_at.isoformat()  # 添加创建时间
+                "creator_username": request.creator_username,
+                "created_at": new_debate.created_at.isoformat()
             }
         except Exception as e:
             logger.error(f"Error in create_debate: {str(e)}")
@@ -359,11 +366,15 @@ def return_debate_info(discussion_id: str):
 def return_juror_results(discussion_id: int):
     db = SessionLocal()
     try:
+        logger.info(f"Fetching juror results for discussion_id: {discussion_id}")
         juror_results = get_all_juror_results(db, discussion_id)
+        logger.info(f"Found {len(juror_results)} juror results")
         return juror_results
     except Exception as e:
         logger.error(f"Error getting juror results: {str(e)}")
-        raise HTTPException(status_code=500, detail="Error retrieving juror results")
+        logger.error(f"Error type: {type(e)}")
+        logger.error(f"Error traceback:", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Error retrieving juror results: {str(e)}")
     finally:
         db.close()
 

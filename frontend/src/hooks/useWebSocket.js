@@ -1,8 +1,15 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { API_CONFIG } from '../config/api';
 
 export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) => {
+  const wsRef = useRef(null);
+
   const connectWebSocket = useCallback(() => {
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      console.log('WebSocket already connected');
+      return;
+    }
+
     // Convert http(s):// to ws(s)://
     const wsUrl = API_CONFIG.BACKEND_URL.replace(/^http/, 'ws');
     const ws = new WebSocket(`${wsUrl}/ws/${debateId}/${clientId}`);
@@ -32,20 +39,32 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse) 
 
     ws.onclose = () => {
       console.log('WebSocket disconnected');
+      wsRef.current = null;
       // Try to reconnect after a delay
       setTimeout(connectWebSocket, 3000);
     };
 
-    return ws;
+    wsRef.current = ws;
   }, [debateId, clientId, onNewMessage, onJurorResponse]);
+
+  const disconnectWebSocket = useCallback(() => {
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!debateId || !clientId) return;
-
-    const ws = connectWebSocket();
-
+    connectWebSocket();
     return () => {
-      ws.close();
+      disconnectWebSocket();
     };
-  }, [debateId, clientId, connectWebSocket]);
-}; 
+  }, [debateId, clientId, connectWebSocket, disconnectWebSocket]);
+
+  return {
+    connectWebSocket,
+    disconnectWebSocket,
+    isConnected: wsRef.current?.readyState === WebSocket.OPEN
+  };
+};

@@ -1,21 +1,66 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useLogout } from '@privy-io/react-auth';
 
-const WelcomePage = ({ onCreateDebate, onJoinDebate, isWalletConnected, walletAddress, onConnectWallet }) => {
+const WelcomePage = ({ onCreateDebate, onJoinDebate, isWalletConnected, walletAddress, onConnectWallet, wallet }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const { logout } = useLogout({
+    onSuccess: () => {
+      console.log('Successfully logged out');
+      setIsMenuOpen(false);
+    }
+  });
+
+  const handleDisconnect = async () => {
+    try {
+      // 1. 尝试断开钱包连接
+      if (wallet?.disconnect) {
+        await wallet.disconnect();
+      }
+      
+      // 2. 使用 Privy 的登出功能
+      logout();
+      
+      setIsMenuOpen(false);
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 bg-gradient-to-br from-gray-900 to-gray-800 flex flex-col items-center justify-center p-4 relative">
       <div className="absolute top-4 right-4">
-        <button
-          onClick={onConnectWallet}
-          className={`px-4 py-2 rounded-md ${
-            isWalletConnected 
-              ? 'bg-gray-800 text-gray-300' 
-              : 'bg-amber-500 text-gray-900 hover:bg-amber-400'
-          }`}
-        >
-          {isWalletConnected 
-            ? (walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Connected') 
-            : "Connect Wallet"}
-        </button>
+        {isWalletConnected ? (
+          <div className="relative">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="px-4 py-2 rounded-md bg-gray-800 text-gray-300 hover:bg-gray-700"
+            >
+              {walletAddress ? `${walletAddress.slice(0, 6)}...${walletAddress.slice(-4)}` : 'Connected'}
+            </button>
+            
+            {/* 钱包菜单 */}
+            {isMenuOpen && (
+              <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-gray-800 ring-1 ring-black ring-opacity-5">
+                <div className="py-1" role="menu" aria-orientation="vertical">
+                  <button
+                    onClick={handleDisconnect}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700"
+                    role="menuitem"
+                  >
+                    Disconnect Wallet
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={onConnectWallet}
+            className="px-4 py-2 rounded-md bg-amber-500 text-gray-900 hover:bg-amber-400"
+          >
+            Connect Wallet
+          </button>
+        )}
       </div>
 
       <div className="text-center space-y-12 max-w-xl">
