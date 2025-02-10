@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import './App.css';
 import { API_CONFIG } from './config/api';
 import LoadingScreen from './components/LoadingScreen';
@@ -20,6 +20,15 @@ import { useWebSocket } from './hooks/useWebSocket';
 
 // Privy
 import { usePrivy, useWallets } from '@privy-io/react-auth';
+
+import GameEngine from './game/engine/GameEngine';
+import CourtroomScene from './game/scenes/CourtroomScene';
+import JurorSprite from './game/sprites/JurorSprite';
+import JudgeSprite from './game/sprites/JudgeSprite';
+import { POSITIONS, SPRITE_WIDTH, SPRITE_HEIGHT } from './game/constants/dimensions';
+import { JUROR_CONFIG } from './game/constants/game';
+import { ASSETS } from './game/constants/assets';
+import { logger } from './game/utils/logger';
 
 const App = () => {
   const { login, ready, authenticated, user, wallet } = usePrivy();
@@ -49,6 +58,119 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const { addMessage, loadMessages } = useMessages(walletAddress, username);
+
+  // Add handlersReady state after other state declarations
+  const [handlersReady, setHandlersReady] = useState(false);
+
+  // Create a ref for the game engine
+  const engineRef = useRef(null);
+
+  // Add state for game engine loading
+  const [isEngineLoading, setIsEngineLoading] = useState(true);
+
+  // Create handlers directly in App
+  const handleJurorVote = useCallback((jurorId, vote) => {
+    console.log('App: Handling vote for juror:', jurorId, 'vote:', vote);
+    if (!engineRef.current) {
+      console.warn('Game engine not initialized');
+      return;
+    }
+
+    // Map server juror index (0-4) to sprite ID (juror1-juror5)
+    const spriteId = `juror${parseInt(jurorId) + 1}`;
+    console.log('Mapped jurorId to spriteId:', spriteId);
+
+    engineRef.current.handleJurorVote(spriteId, vote);
+  }, []);
+
+  const handleJudgeCommand = useCallback((command) => {
+    console.log('App: Handling judge command:', command);
+    if (!engineRef.current) {
+      console.warn('Game engine not initialized');
+      return;
+    }
+    engineRef.current.handleJudgeSpeak(command);
+  }, []);
+
+  // Set handlers ready when engine is initialized
+  const onEngineInitialized = useCallback((engine) => {
+    console.log('Game engine initialized');
+    engineRef.current = engine;
+    setHandlersReady(true);
+  }, []);
+
+  // Initialize game engine
+  const initializeGameEngine = useCallback(async (canvasElement) => {
+    if (!canvasElement) return null;
+
+    try {
+      // Set canvas size
+      canvasElement.width = POSITIONS.CANVAS_WIDTH;
+      canvasElement.height = POSITIONS.CANVAS_HEIGHT;
+
+      const engine = new GameEngine(canvasElement);
+      const scene = new CourtroomScene(engine);
+
+      // Load background image
+      const bgImage = new Image();
+      bgImage.src = ASSETS.BACKGROUND;
+      
+      await new Promise((resolve, reject) => {
+        bgImage.onload = () => {
+          scene.setBackground(bgImage);
+          resolve();
+        };
+        bgImage.onerror = reject;
+      });
+
+      // Setup sprites
+      const setupSprites = () => {
+        const totalWidth = SPRITE_WIDTH * 7;
+        const leftOffset = SPRITE_WIDTH * -0.45;
+        const startX = (POSITIONS.CENTER.x - (totalWidth / 2)) - leftOffset;
+        const spacing = SPRITE_WIDTH * 1.28;
+        
+        const judgeY = POSITIONS.CENTER.y - SPRITE_HEIGHT * 0.3;
+        const jurorY = POSITIONS.CENTER.y + SPRITE_HEIGHT * 1.5;
+
+        // Create judge
+        const judgeXOffset = SPRITE_WIDTH * 0.03;
+        const judge = new JudgeSprite(
+          POSITIONS.CENTER.x - (SPRITE_WIDTH/2) - judgeXOffset,
+          judgeY
+        );
+        engine.sprites.set('judge', judge);
+
+        // Create jurors
+        JUROR_CONFIG.forEach((juror) => {
+          const sprite = new JurorSprite(
+            juror.id,
+            startX + (spacing * juror.order),
+            jurorY,
+            juror.character
+          );
+          engine.sprites.set(juror.id, sprite);
+        });
+      };
+
+      engine.setScene(scene);
+      scene.initialize();
+      setupSprites();
+      engine.start();
+
+      // Store engine reference and set ready state
+      engineRef.current = engine;
+      setHandlersReady(true);
+      setIsEngineLoading(false);
+      
+      logger.info('Game engine initialized successfully');
+      return engine;
+    } catch (error) {
+      logger.error('Failed to initialize game engine:', error);
+      setIsEngineLoading(false);
+      return null;
+    }
+  }, []);
 
   useEffect(() => {
     if (ready && authenticated && user) {
@@ -136,22 +258,22 @@ const App = () => {
     { time: '4:14 PM', yes: 12, no: 8 }
   ]);
 
-  const [handleJurorVote, setHandleJurorVote] = useState(null);
-
   // Add AI voting trends state
   const [aiVotingTrends, setAiVotingTrends] = useState([]);
 
-  // Handle judge commands
-  const [handleJudgeCommand, setHandleJudgeCommand] = useState(null);
+  // Monitor handler initialization
+  useEffect(() => {
+    console.log('Handler state changed:', {
+      hasJurorVoteHandler: !!handleJurorVote,
+      hasJudgeCommandHandler: !!handleJudgeCommand,
+      handlersReady
+    });
 
-  // Memoize the callback
-  const onJurorVote = useCallback((handleVote) => {
-    setHandleJurorVote(() => handleVote);
-  }, []); // Empty dependency array since it doesn't depend on any values
-
-  const onJudgeCommandInit = useCallback((handler) => {
-    setHandleJudgeCommand(() => handler);
-  }, []);
+    if (handleJurorVote && handleJudgeCommand && !handlersReady) {
+      console.log('Both handlers received from CourtRoom, ready to enable animations');
+      setHandlersReady(true);
+    }
+  }, [handleJurorVote, handleJudgeCommand, handlersReady]);
 
   // Initialize with demo content when joining existing debate
   const initializeDemoContent = () => {
@@ -562,49 +684,25 @@ const App = () => {
     console.log('Updated AI voting trends:', cumulativeVotes);
   }, [currentDebateInfo, handleJurorVote]);
 
-  // 设置 handleJurorVote 函数
-  const setJurorVoteHandler = useCallback((handler) => {
-    console.log('Setting juror vote handler');
-    setHandleJurorVote(() => handler);
-  }, []);
-
-  // Handle judge messages
-  const handleJudgeMessage = useCallback((messageData) => {
-    console.log('handleJudgeMessage messageData:', messageData);
-    console.log('handleJudgeCommand:', handleJudgeCommand);
-    
-    if (!handleJudgeCommand) return;
-    
-    if (!handleJudgeCommand) return;
-    
-    const message = messageData.message;
-    if (message.includes('NFT Contract Deployed')) {
-      handleJudgeCommand("DEPLOYED NFT");
-    } else if (message.includes('NFT Minted Successfully')) {
-      handleJudgeCommand("MINTED NFT");
-    } else if (message.includes('NFT Minting Summary')) {
-      handleJudgeCommand("SUMMARY");
-    } else if (message.includes('Action Result')) {
-      handleJudgeCommand("ACTION DONE");
-    }
-  }, [handleJudgeCommand]);
-
-  // WebSocket 连接
+  // Update the WebSocket to use handlers directly
   const { connectWebSocket, disconnectWebSocket, isConnected } = useWebSocket(
     currentDebateId,
     walletAddress || 'anonymous',
     handleNewMessage,
     handleJurorResponse,
-    handleJudgeMessage
+    handleJudgeCommand  // Use the handler directly
   );
 
-  // WebSocket 重连和历史记录获取
+  // Modify the WebSocket connection effect
   useEffect(() => {
-    if (currentDebateId && currentView === 'debate' && !isConnected) {
-      // 连接 WebSocket
+    if (currentDebateId && 
+        currentView === 'debate' && 
+        !isConnected && 
+        handlersReady) { // Only connect when handlers are ready
+      console.log('Handlers ready, connecting WebSocket');
       connectWebSocket();
       
-      // 获取历史记录
+      // Get history
       fetchJurorHistory(currentDebateId).catch(error => {
         console.error('Error fetching juror history:', error);
       });
@@ -615,7 +713,7 @@ const App = () => {
         disconnectWebSocket();
       }
     };
-  }, [currentDebateId, currentView, isConnected, connectWebSocket, disconnectWebSocket]);
+  }, [currentDebateId, currentView, isConnected, handlersReady, connectWebSocket, disconnectWebSocket]);
 
   // 检查 URL 中的 debate ID
   useEffect(() => {
@@ -728,9 +826,18 @@ const App = () => {
                 {/* Court Room */}
                 <div className="relative h-[55%] bg-white shadow-lg overflow-hidden">
                   <CourtRoom 
-                    onJurorVote={onJurorVote} 
-                    onWebSocketInit={onJudgeCommandInit}
+                    handleJurorVote={handleJurorVote}
+                    handleJudgeCommand={handleJudgeCommand}
+                    onCanvasReady={initializeGameEngine}
                   />
+                  {isEngineLoading && (
+                    <div className="absolute inset-0 bg-white/80 flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-court-brown mx-auto mb-2"></div>
+                        <p className="text-gray-600">Initializing game engine...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* AI Jurors Opinions */}
