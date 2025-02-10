@@ -44,7 +44,22 @@ export const useWebSocket = (debateId, clientId, onNewMessage, onJurorResponse, 
           // Check if it's a judge agent message and has a valid ID
           if (data.data?.username === "Judge Agent" && data.data?.id) {
             console.log('Received judge message:', data.data);
-            onJudgeMessage(data.data);
+
+            let message = data.data.message;
+            if (message.includes('Debate Topic')) {
+              onJudgeMessage("DEBATE STARTED");
+            } else if (message.includes('Debate Summary')) {
+              onJudgeMessage("DEBATE SUMMARY");
+            } else if (message.includes('NFT Contract Deployed')) {
+              onJudgeMessage("DEPLOYED NFT");
+            } else if (message.includes('NFT Minted Successfully')) {
+              onJudgeMessage("MINTED NFT");
+            } else if (message.includes('NFT Minting Summary')) {
+              onJudgeMessage("MINT SUMMARY");
+            } else if (message.includes('Action Result')) {
+              onJudgeMessage("ACTION DONE");
+            }
+
           } else {
             console.log('Received regular user message:', data.data);
           }
