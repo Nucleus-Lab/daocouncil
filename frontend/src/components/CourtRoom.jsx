@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 
-const CourtRoom = ({ handleJurorVote, handleJudgeCommand, onCanvasReady }) => {
+const CourtRoom = React.memo(({ handleJurorVote, handleJudgeCommand, onCanvasReady }) => {
     const canvasRef = useRef(null);
 
     // Set up canvas ref callback
@@ -51,6 +51,13 @@ const CourtRoom = ({ handleJurorVote, handleJudgeCommand, onCanvasReady }) => {
             </div>
         </div>
     );
-};
+}, (prevProps, nextProps) => {
+    // Custom comparison function to determine if component should update
+    return (
+        prevProps.handleJurorVote === nextProps.handleJurorVote &&
+        prevProps.handleJudgeCommand === nextProps.handleJudgeCommand &&
+        prevProps.onCanvasReady === nextProps.onCanvasReady
+    );
+});
 
 export default CourtRoom;
